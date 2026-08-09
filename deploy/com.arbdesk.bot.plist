@@ -1,0 +1,45 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  Keeps bot.py running so replies to alerts get answered.
+
+  Install:
+    cp deploy/com.arbdesk.bot.plist ~/Library/LaunchAgents/
+    launchctl load ~/Library/LaunchAgents/com.arbdesk.bot.plist
+
+  Stop:
+    launchctl unload ~/Library/LaunchAgents/com.arbdesk.bot.plist
+
+  KeepAlive restarts it if it dies or the machine reboots. It spends no API
+  credits — it only recomputes stakes from prices already sent — so a restart
+  loop costs nothing but log noise.
+-->
+<plist version="1.0">
+<dict>
+    <key>Label</key>
+    <string>com.arbdesk.bot</string>
+
+    <key>ProgramArguments</key>
+    <array>
+        <string>/usr/local/bin/python3</string>
+        <string>/Users/rijulkhunger/Downloads/arb-tool/bot.py</string>
+    </array>
+
+    <key>WorkingDirectory</key>
+    <string>/Users/rijulkhunger/Downloads/arb-tool</string>
+
+    <key>RunAtLoad</key>
+    <true/>
+    <key>KeepAlive</key>
+    <true/>
+
+    <!-- Long-poll holds a connection for ~50s at a time; throttle restarts so a
+         misconfiguration cannot spin. -->
+    <key>ThrottleInterval</key>
+    <integer>30</integer>
+
+    <key>StandardOutPath</key>
+    <string>/Users/rijulkhunger/Downloads/arb-tool/bot.log</string>
+    <key>StandardErrorPath</key>
+    <string>/Users/rijulkhunger/Downloads/arb-tool/bot.log</string>
+</dict>
+</plist>

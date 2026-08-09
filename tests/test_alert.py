@@ -1,0 +1,158 @@
+"""Telegram alerting: suppression, formatting, and the failure modes.
+
+Suppression decides whether a real arbitrage reaches the phone, so the bias
+throughout is to send. Silence is only correct when the same opportunity has
+already gone out recently at no better a price.
+"""
+import sys, time, unittest
+from pathlib import Path
+from types import SimpleNamespace
+sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+
+import config, alert
+from arbtool.scan import assess_event
+from watch import demo_events
+
+
+def demo_opps():
+    return [o for o in (assess_event(ev, "rugbyleague_nrl", "NRL (demo)", config)
+                        for ev in demo_events()) if o]
+
+
+def playable():
+    return [o for o in demo_opps() if o.placeable and o.profit >= config.MIN_PROFIT]
+
+
+class TestSuppression(unittest.TestCase):
+    def setUp(self):
+        self.opp = playable()[0]
+        self.now = 1_000_000.0
+
+    def test_unseen_is_sent(self):
+        self.assertTrue(alert.is_fresh(self.opp, {}, self.now))
+
+    def test_same_opportunity_suppressed_inside_window(self):
+        seen = {alert._sig(self.opp): {"at": self.now - 60, "profit": self.opp.profit}}
+        self.assertFalse(alert.is_fresh(self.opp, seen, self.now))
+
+    def test_sent_again_after_cooldown(self):
+        old = self.now - (alert.COOLDOWN_H * 3600 + 1)
+        seen = {alert._sig(self.opp): {"at": old, "profit": self.opp.profit}}
+        self.assertTrue(alert.is_fresh(self.opp, seen, self.now))
+
+    def test_materially_better_price_breaks_through(self):
+        """A standing arb that got much more profitable is worth a second
+        interruption — it may now clear a threshold that made it not worth
+        placing the first time."""
+        seen = {alert._sig(self.opp): {"at": self.now - 60,
+                                       "profit": self.opp.profit / (alert.IMPROVE * 2)}}
+        self.assertTrue(alert.is_fresh(self.opp, seen, self.now))
+
+    def test_marginally_better_price_does_not(self):
+        seen = {alert._sig(self.opp): {"at": self.now - 60,
+                                       "profit": self.opp.profit * 0.99}}
+        self.assertFalse(alert.is_fresh(self.opp, seen, self.now))
+
+    def test_corrupt_state_file_does_not_silence_alerts(self):
+        """A damaged state file must fail towards sending, never towards
+        silence — a missed arbitrage is worse than a duplicate message."""
+        p = alert.SEEN_FILE
+        backup = p.read_bytes() if p.exists() else None
+        try:
+            p.write_text("{not json")
+            self.assertEqual(alert.load_seen(), {})
+            self.assertTrue(alert.is_fresh(self.opp, alert.load_seen(), self.now))
+        finally:
+            p.unlink(missing_ok=True)
+            if backup is not None:
+                p.write_bytes(backup)
+
+    def test_signature_ignores_price_drift(self):
+        """Identity is the fixture. A cent of movement is the same opportunity,
+        not a new one to re-announce."""
+        a, b = playable()[0], playable()[0]
+        b.arb.legs[b.arb.outcomes[0]].odds += 0.01
+        self.assertEqual(alert._sig(a), alert._sig(b))
+
+    def test_signature_ignores_which_pairing_won(self):
+        """Ladbrokes and Neds are one Entain desk quoting identically, so the
+        best pairing on a game can flip between them run to run. That must not
+        read as a new opportunity, or the same match arrives every 20 minutes."""
+        a, b = playable()[0], playable()[0]
+        bp = b.analysis.best_pair
+        bp.book_a, bp.book_b = bp.book_b, bp.book_a
+        self.assertEqual(alert._sig(a), alert._sig(b))
+
+    def test_same_fixture_suppressed_across_a_20_minute_gap(self):
+        """The scheduled interval. A standing arb must not resend at 20 min."""
+        opp = playable()[0]
+        seen = {alert._sig(opp): {"at": self.now - 20 * 60, "profit": opp.profit}}
+        self.assertFalse(alert.is_fresh(opp, seen, self.now))
+
+
+class TestVerificationNote(unittest.TestCase):
+    def test_names_each_price_to_check(self):
+        """A general 'confirm before staking' is easy to skim past. The message
+        must name the book, the side and the number, because the edge usually
+        rests on one outlying price and that is the one most likely stale."""
+        hits = playable()
+        msg = alert.build_messages(hits, config)[0]
+        self.assertIn("CHECK BEFORE STAKING", msg)
+        arb = hits[0].arb
+        for o in arb.outcomes:
+            leg = arb.legs[o]
+            self.assertIn(f"{leg.book} — {o} showing", msg)
+            self.assertIn(f"{leg.odds:.2f}</b> or better", msg)
+        self.assertIn("the arbitrage is gone", msg)
+
+
+class TestMessage(unittest.TestCase):
+    def _api(self):
+        return SimpleNamespace(credits=SimpleNamespace(
+            spent_this_session=11, remaining_reported=415))
+
+    def test_hit_leads_with_guaranteed_profit(self):
+        hits = playable()
+        msg = alert.build_messages(hits, config)[0]
+        arb = hits[0].arb
+        # worst_profit, never the headline margin: after rounding the legs no
+        # longer pay identically and only this figure is actually guaranteed.
+        self.assertIn(f"${arb.worst_profit:,.2f} guaranteed", msg)
+        self.assertIn("PLACE FIRST", msg)
+        self.assertIn("unhedged", msg)          # the one-leg risk must stay stated
+
+    def test_one_message_per_game(self):
+        """Two bet slips in one Telegram bubble means scrolling past one to
+        read the other, on a phone, while both prices move."""
+        hits = playable()
+        self.assertEqual(len(alert.build_messages(hits * 3, config)), len(hits) * 3)
+
+    def test_stakes_are_whole_dollars_with_no_cents(self):
+        """allocate() rounds to STAKE_INCREMENT, so the cents are always .00 —
+        printing them just adds digits to mistype into a betting slip."""
+        hits = playable()
+        msg = alert.build_messages(hits, config)[0]
+        arb = hits[0].arb
+        for o in arb.outcomes:
+            self.assertEqual(arb.legs[o].stake % config.STAKE_INCREMENT, 0)
+            self.assertIn(f"stake ${arb.legs[o].stake:,.0f}</b>", msg)
+        self.assertNotIn(".00</b>", msg)
+
+    def test_noise_is_not_in_the_message(self):
+        msg = alert.build_messages(playable(), config)[0]
+        for banned in ("starts in", "oldest quote", "credit(s) this run",
+                       "left on plan", "not an instruction"):
+            self.assertNotIn(banned, msg)
+
+    def test_team_names_are_escaped(self):
+        """Team names reach Telegram inside HTML. An unescaped angle bracket
+        would break parse_mode and the message would be refused outright."""
+        self.assertEqual(alert.e("A & B <script>"), "A &amp; B &lt;script&gt;")
+
+    def test_message_fits_telegram_limit(self):
+        for msg in alert.build_messages(playable() * 12, config):
+            self.assertLessEqual(len(msg), alert.MAX_LEN)
+
+
+if __name__ == "__main__":
+    unittest.main(verbosity=2)

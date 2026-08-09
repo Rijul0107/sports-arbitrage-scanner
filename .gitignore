@@ -1,0 +1,11 @@
+__pycache__/
+*.pyc
+.venv/
+.env
+shot_*.png
+.DS_Store
+.alert_seen.json
+alert.log
+.alert_last.json
+.alert_fails.json
+.bot_offset.json

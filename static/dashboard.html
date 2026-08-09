@@ -1,0 +1,735 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Arb Desk — live</title>
+<style>
+  :root{
+    --felt:#0b3b2e; --felt-dark:#072a21; --ledger:#f2ead8; --panel:#f6f1e3;
+    --ink:#1c1a15; --ink-soft:#5b5548; --muted:#8a8272;
+    --gold:#c9a24b; --gold-bright:#e6c266;
+    --series:#0b7a4a; --red:#a13b2c;
+    --line:rgba(28,26,21,0.15); --grid:#ded4bd;
+    --mono:'SF Mono',ui-monospace,'Courier New',monospace;
+    --serif:Georgia,'Times New Roman',serif;
+  }
+  *{box-sizing:border-box}
+  body{
+    margin:0;background:var(--felt);
+    background-image:radial-gradient(circle at 50% -10%,rgba(255,255,255,.06),transparent 55%);
+    font-family:var(--serif);color:var(--ink);padding:18px 14px 60px;min-height:100vh;
+  }
+  .wrap{max-width:1180px;margin:0 auto}
+
+  /* ---------- status bar ---------- */
+  .statusbar{
+    display:flex;align-items:center;gap:16px;flex-wrap:wrap;
+    background:var(--felt-dark);border:1px solid rgba(201,162,75,.35);
+    border-radius:4px;padding:12px 18px;margin-bottom:16px;
+    font-family:var(--mono);font-size:12px;color:rgba(242,234,216,.75);
+  }
+  .statusbar .brand{
+    font-family:var(--serif);font-size:19px;font-weight:700;
+    color:var(--ledger);letter-spacing:.3px;margin-right:2px;
+  }
+  .dot{width:8px;height:8px;border-radius:50%;background:var(--series);
+       display:inline-block;margin-right:7px;vertical-align:middle}
+  .dot.stale{background:var(--gold)} .dot.off{background:var(--red)}
+  .live-pulse{animation:pulse 2s ease-in-out infinite}
+  @keyframes pulse{0%,100%{opacity:1}50%{opacity:.35}}
+  @media (prefers-reduced-motion:reduce){.live-pulse{animation:none}}
+  .statusbar .sep{color:rgba(201,162,75,.4)}
+  .statusbar b{color:var(--gold-bright);font-weight:400}
+  .spacer{flex:1}
+  .stake-inline{display:flex;align-items:center;gap:7px}
+  .stake-inline label{font-size:11px;white-space:nowrap}
+  .stake-inline input{
+    width:96px;font-family:var(--mono);font-size:14px;padding:6px 8px;
+    border:1px solid rgba(201,162,75,.5);border-radius:2px;
+    background:rgba(0,0,0,.28);color:var(--gold-bright);text-align:right;font-weight:700;
+  }
+  .toggle{display:flex;align-items:center;gap:6px;font-size:11px;cursor:pointer;white-space:nowrap}
+  .toggle input{width:auto;cursor:pointer}
+  .btn{
+    font-family:var(--mono);font-size:11px;letter-spacing:1.2px;text-transform:uppercase;
+    padding:7px 14px;border-radius:2px;border:1px solid var(--gold);
+    background:transparent;color:var(--gold-bright);cursor:pointer;
+  }
+  .btn:hover{background:rgba(201,162,75,.15)}
+  .btn.solid{background:var(--gold);color:var(--felt-dark);font-weight:700}
+  .btn.solid:hover{background:var(--gold-bright)}
+
+  /* ---------- summary ---------- */
+  .summary{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));
+           gap:10px;margin-bottom:16px}
+  .stat{background:var(--ledger);border-radius:3px;padding:12px 14px;border-top:3px solid var(--gold)}
+  .stat.hot{border-top-color:var(--series)}
+  .stat .k{font-family:var(--mono);font-size:9.5px;letter-spacing:1.4px;
+           text-transform:uppercase;color:var(--ink-soft);margin-bottom:5px}
+  .stat .v{font-family:var(--mono);font-size:23px;font-weight:700;line-height:1.05}
+  .stat .v.pos{color:var(--series)}
+  .stat .s{font-family:var(--mono);font-size:10px;color:var(--muted);margin-top:3px}
+
+  /* ---------- at-a-glance board ---------- */
+  .board{background:var(--ledger);border-radius:4px;margin-bottom:16px;overflow:hidden}
+  .board h4{
+    margin:0;padding:12px 18px;font-family:var(--mono);font-size:10px;
+    letter-spacing:2px;text-transform:uppercase;color:var(--ink-soft);
+    border-bottom:1px dashed var(--line);font-weight:400;
+    display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;
+  }
+  .board h4 .hint{letter-spacing:0;text-transform:none;font-style:italic}
+  .board .scroll{overflow-x:auto}
+  .board table{width:100%;border-collapse:collapse;font-family:var(--mono);font-size:12px}
+  .board th{
+    text-align:left;font-size:9px;letter-spacing:1px;text-transform:uppercase;
+    color:var(--muted);font-weight:400;padding:7px 18px;border-bottom:1px solid var(--line);
+    white-space:nowrap;
+  }
+  .board th.num,.board td.num{text-align:right}
+  .board td{padding:8px 18px;border-bottom:1px dotted var(--line);
+            font-variant-numeric:tabular-nums;cursor:pointer;white-space:nowrap}
+  .board tr:last-child td{border-bottom:none}
+  .board tr:hover td{background:rgba(255,255,255,.55)}
+  .board tr.hot td{background:rgba(11,122,74,.09)}
+  .board tr.hot:hover td{background:rgba(11,122,74,.16)}
+  .board .g{color:var(--series);font-weight:700}
+  .board .n{color:var(--muted)}
+  .board .team{font-family:var(--serif);font-size:13px;white-space:normal}
+
+  /* ---------- game card ---------- */
+  .game{background:var(--ledger);border-radius:4px;margin-bottom:10px;overflow:hidden;
+        box-shadow:0 8px 22px rgba(0,0,0,.28)}
+  .game.arb{box-shadow:0 8px 22px rgba(0,0,0,.28),0 0 0 2px var(--series)}
+  .game-head{display:flex;align-items:center;gap:12px;padding:13px 18px;cursor:pointer;flex-wrap:wrap}
+  .game.open .game-head{border-bottom:1px dashed var(--line)}
+  .game-head:hover{background:rgba(255,255,255,.35)}
+  .chev{font-family:var(--mono);color:var(--muted);font-size:14px;
+        transition:transform .12s;display:inline-block}
+  .game.open .chev{transform:rotate(90deg)}
+  @media (prefers-reduced-motion:reduce){.chev{transition:none}}
+  .teams{font-size:16px;font-weight:700}
+  .teams .vs{color:var(--muted);font-weight:400;font-style:italic;margin:0 6px}
+  .meta{font-family:var(--mono);font-size:10.5px;color:var(--muted);
+        display:flex;gap:11px;flex-wrap:wrap;align-items:center;margin-top:3px}
+  .edge{font-family:var(--mono);font-size:21px;font-weight:700;min-width:104px;text-align:right}
+  .edge.pos{color:var(--series)} .edge.neg{color:var(--muted)}
+  .edge small{display:block;font-size:9px;letter-spacing:1px;text-transform:uppercase;
+              color:var(--muted);font-weight:400;margin-top:2px}
+  .pill{font-family:var(--mono);font-size:9px;letter-spacing:1px;text-transform:uppercase;
+        padding:3px 7px;border-radius:2px;background:rgba(28,26,21,.08);color:var(--ink-soft)}
+  .pill.depth{background:var(--series);color:#fff}
+  .pill.warn{background:var(--gold);color:var(--felt-dark)}
+  .pill.thin{background:rgba(161,59,44,.14);color:var(--red)}
+
+  .game-body{padding:0 18px 18px;display:none}
+  .game.open .game-body{display:block}
+  .section-label{font-family:var(--mono);font-size:10px;letter-spacing:2px;
+                 text-transform:uppercase;color:var(--ink-soft);margin:18px 0 9px}
+
+  /* ---------- pairwise matrix ---------- */
+  table.matrix{border-collapse:separate;border-spacing:3px;font-family:var(--mono);font-size:12px}
+  table.matrix th{font-size:9.5px;letter-spacing:.8px;text-transform:uppercase;color:var(--ink-soft);
+                  font-weight:400;padding:4px 6px;text-align:center;white-space:nowrap}
+  table.matrix th.row{text-align:right;padding-right:9px}
+  table.matrix td{padding:9px 8px;text-align:center;border-radius:2px;min-width:76px;
+                  background:rgba(255,255,255,.4);color:var(--muted);font-variant-numeric:tabular-nums}
+  table.matrix td.self{background:transparent;color:var(--grid)}
+  table.matrix td.arb{background:rgba(11,122,74,.16);color:var(--series);font-weight:700}
+  table.matrix td.best{background:var(--series);color:#fff;font-weight:700;
+                       box-shadow:0 0 0 2px var(--ledger),0 0 0 4px var(--series)}
+  .matrix-legend{font-family:var(--mono);font-size:10.5px;color:var(--muted);
+                 margin-top:10px;line-height:1.6}
+  .matrix-wrap{overflow-x:auto}
+
+  /* ---------- prices + slip ---------- */
+  table.led{width:100%;border-collapse:collapse;font-family:var(--mono);font-size:12.5px}
+  table.led th{text-align:left;font-size:9.5px;text-transform:uppercase;letter-spacing:1px;
+               color:var(--ink-soft);padding:6px 8px;border-bottom:1px solid var(--line);font-weight:400}
+  table.led td{padding:7px 8px;border-bottom:1px dotted var(--line);font-variant-numeric:tabular-nums}
+  table.led td.num,table.led th.num{text-align:right}
+  table.led td.num{font-weight:700}
+  table.led td.top{background:rgba(11,122,74,.14);color:var(--series);border-radius:2px}
+  table.led td.top::after{content:" ★";font-size:9px}
+  table.led .age{color:var(--muted);font-size:10.5px;font-weight:400}
+  table.led .age.old{color:var(--red)}
+
+  .slip{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:10px}
+  @media (max-width:640px){.slip{grid-template-columns:1fr}}
+  .leg{background:rgba(255,255,255,.45);border:1px solid var(--line);
+       border-left:4px solid var(--series);border-radius:3px;padding:14px}
+  .leg.second{border-left-color:var(--gold)}
+  .leg .order{font-family:var(--mono);font-size:9px;letter-spacing:1.4px;
+              text-transform:uppercase;color:var(--muted);margin-bottom:8px}
+  .leg .order b{color:var(--felt)}
+  .leg .book{font-family:var(--mono);font-size:15px;font-weight:700;color:var(--felt);margin-bottom:3px}
+  .leg .pickline{font-size:14px;margin-bottom:10px}
+  .leg .stake{font-family:var(--mono);font-size:29px;font-weight:700;color:var(--series);line-height:1}
+  .leg .ret{font-family:var(--mono);font-size:11px;color:var(--muted);margin-top:4px}
+
+  .totals{display:flex;gap:22px;flex-wrap:wrap;margin-top:12px;padding:12px 14px;
+          background:var(--felt-dark);border-radius:3px;font-family:var(--mono)}
+  .totals div{font-size:11px;color:rgba(242,234,216,.65)}
+  .totals b{display:block;font-size:18px;color:var(--ledger);margin-top:3px}
+  .totals b.pos{color:#7fd6a8}
+  .risk{font-family:var(--mono);font-size:11.5px;line-height:1.65;color:var(--ink-soft);
+        border-left:3px solid var(--gold);background:rgba(255,255,255,.35);
+        padding:10px 13px;margin-top:12px;border-radius:0 2px 2px 0}
+  .risk b{color:var(--ink)}
+  .empty{background:var(--ledger);border-radius:4px;padding:44px 24px;text-align:center}
+  .empty h3{margin:0 0 8px;font-size:19px}
+  .empty p{font-family:var(--mono);font-size:12px;color:var(--ink-soft);
+           line-height:1.7;margin:0 auto;max-width:540px}
+  .foot{font-family:var(--mono);font-size:10px;color:rgba(242,234,216,.4);
+        text-align:center;margin-top:24px;line-height:1.8}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <div class="statusbar">
+    <span class="brand">Arb Desk</span>
+    <span><span class="dot live-pulse" id="statusDot"></span><span id="statusText">Live</span></span>
+    <span class="sep">|</span>
+    <span>odds captured <b id="lastRefresh">—</b></span>
+    <span class="sep">|</span>
+    <span>credits <b id="credits">438</b></span>
+    <span class="spacer"></span>
+    <span class="stake-inline">
+      <label for="stake">total stake $</label>
+      <input type="number" id="stake" value="1500" step="50" min="10">
+    </span>
+    <label class="toggle"><input type="checkbox" id="arbOnly"> arb only</label>
+    <button class="btn" id="refreshBtn" title="Re-read the last snapshot. Costs nothing.">Redraw</button>
+    <button class="btn solid" id="fetchBtn"
+            title="Spends credits: one live request per sport in season.">Fetch odds</button>
+  </div>
+
+  <div class="summary" id="summary"></div>
+  <div id="board"></div>
+  <div id="games"></div>
+
+  <div class="foot">
+    Tracking SportsBet · Ladbrokes · TAB · Neds &nbsp;—&nbsp; pre-match only, head-to-head
+    <br>Odds move. Books limit and void bets. A hedge that only half fills is just a bet.
+  </div>
+</div>
+
+<script>
+/* ============================================================
+   DEMO PAYLOAD — replaced by the live feed from serve.py.
+   Only odds and ages are given; every margin below is computed, so the
+   figures on screen can never disagree with the prices they came from.
+   ============================================================ */
+const DEMO = {
+  credits_remaining: 438,
+  books: ["SportsBet","Ladbrokes","TAB","Neds"],
+  games: [
+    {id:"n1", sport:"NRL", home:"Penrith Panthers", away:"Melbourne Storm", starts_in_min:47,
+     outcomes:["Penrith Panthers","Melbourne Storm"],
+     odds:{SportsBet:{"Penrith Panthers":2.12,"Melbourne Storm":1.78},
+           Ladbrokes:{"Penrith Panthers":1.95,"Melbourne Storm":1.92},
+           TAB:{"Penrith Panthers":1.85,"Melbourne Storm":1.98},
+           Neds:{"Penrith Panthers":1.80,"Melbourne Storm":2.08}},
+     ages:{SportsBet:11,Ladbrokes:24,TAB:38,Neds:9}},
+
+    {id:"n2", sport:"NRL", home:"Sydney Roosters", away:"Brisbane Broncos", starts_in_min:190,
+     outcomes:["Sydney Roosters","Brisbane Broncos"],
+     odds:{SportsBet:{"Sydney Roosters":1.90,"Brisbane Broncos":1.90},
+           Ladbrokes:{"Sydney Roosters":1.87,"Brisbane Broncos":1.93},
+           TAB:{"Sydney Roosters":1.92,"Brisbane Broncos":1.88},
+           Neds:{"Sydney Roosters":1.88,"Brisbane Broncos":1.94}},
+     ages:{SportsBet:42,Ladbrokes:51,TAB:33,Neds:28}},
+
+    {id:"n3", sport:"NRL", home:"Parramatta Eels", away:"Canberra Raiders", starts_in_min:275,
+     outcomes:["Parramatta Eels","Canberra Raiders"],
+     odds:{SportsBet:{"Parramatta Eels":2.55,"Canberra Raiders":1.55},
+           Ladbrokes:{"Parramatta Eels":2.70,"Canberra Raiders":1.50},
+           TAB:{"Parramatta Eels":2.45,"Canberra Raiders":1.58},
+           Neds:{"Parramatta Eels":2.62,"Canberra Raiders":1.52}},
+     ages:{SportsBet:16,Ladbrokes:12,TAB:61,Neds:19}},
+
+    {id:"n4", sport:"NRL", home:"South Sydney Rabbitohs", away:"Cronulla Sharks", starts_in_min:320,
+     outcomes:["South Sydney Rabbitohs","Cronulla Sharks"],
+     odds:{SportsBet:{"South Sydney Rabbitohs":3.20,"Cronulla Sharks":1.36},
+           Ladbrokes:{"South Sydney Rabbitohs":3.35,"Cronulla Sharks":1.34},
+           TAB:{"South Sydney Rabbitohs":3.10,"Cronulla Sharks":1.40},
+           Neds:{"South Sydney Rabbitohs":3.40,"Cronulla Sharks":1.33}},
+     ages:{SportsBet:22,Ladbrokes:18,TAB:27,Neds:14}},
+
+    {id:"n5", sport:"NRL", home:"North Qld Cowboys", away:"Newcastle Knights", starts_in_min:390,
+     outcomes:["North Qld Cowboys","Newcastle Knights"],
+     odds:{SportsBet:{"North Qld Cowboys":1.72,"Newcastle Knights":2.15},
+           Ladbrokes:{"North Qld Cowboys":1.70,"Newcastle Knights":2.20},
+           TAB:{"North Qld Cowboys":1.75,"Newcastle Knights":2.10},
+           Neds:{"North Qld Cowboys":1.68,"Newcastle Knights":2.26}},
+     ages:{SportsBet:31,Ladbrokes:24,TAB:19,Neds:36}},
+
+    {id:"n6", sport:"NRL", home:"Canterbury Bulldogs", away:"Manly Sea Eagles", starts_in_min:455,
+     outcomes:["Canterbury Bulldogs","Manly Sea Eagles"],
+     odds:{SportsBet:{"Canterbury Bulldogs":2.05,"Manly Sea Eagles":1.83},
+           Ladbrokes:{"Canterbury Bulldogs":2.00,"Manly Sea Eagles":1.85},
+           TAB:{"Canterbury Bulldogs":1.98,"Manly Sea Eagles":1.88},
+           Neds:{"Canterbury Bulldogs":2.02,"Manly Sea Eagles":1.84}},
+     ages:{SportsBet:44,Ladbrokes:39,TAB:52,Neds:41}},
+
+    {id:"n7", sport:"NRL", home:"Gold Coast Titans", away:"St George Dragons", starts_in_min:510,
+     outcomes:["Gold Coast Titans","St George Dragons"],
+     odds:{SportsBet:{"Gold Coast Titans":1.94,"St George Dragons":1.94},
+           Ladbrokes:{"Gold Coast Titans":2.02,"St George Dragons":1.86},
+           TAB:{"Gold Coast Titans":1.90,"St George Dragons":1.98},
+           Neds:{"Gold Coast Titans":1.96,"St George Dragons":1.92}},
+     ages:{SportsBet:8,Ladbrokes:15,TAB:11,Neds:13}},
+
+    {id:"n8", sport:"NRL", home:"Wests Tigers", away:"Dolphins", starts_in_min:575,
+     outcomes:["Wests Tigers","Dolphins"],
+     odds:{SportsBet:{"Wests Tigers":2.88,"Dolphins":1.42},
+           Ladbrokes:{"Wests Tigers":2.80,"Dolphins":1.45},
+           TAB:{"Wests Tigers":2.95,"Dolphins":1.40},
+           Neds:{"Wests Tigers":2.75,"Dolphins":1.47}},
+     ages:{SportsBet:26,Ladbrokes:33,TAB:21,Neds:29}},
+
+    {id:"t1", sport:"ATP Cincinnati", home:"C. Alcaraz", away:"J. Sinner", starts_in_min:112,
+     outcomes:["C. Alcaraz","J. Sinner"],
+     odds:{SportsBet:{"C. Alcaraz":1.88,"J. Sinner":1.98},
+           Ladbrokes:{"C. Alcaraz":1.91,"J. Sinner":1.95},
+           TAB:{"C. Alcaraz":1.95,"J. Sinner":1.90},
+           Neds:{"C. Alcaraz":1.84,"J. Sinner":2.06}},
+     ages:{SportsBet:19,Ladbrokes:31,TAB:15,Neds:22}},
+
+    {id:"t2", sport:"WTA Cincinnati", home:"I. Swiatek", away:"A. Sabalenka", starts_in_min:145,
+     outcomes:["I. Swiatek","A. Sabalenka"],
+     odds:{SportsBet:{"I. Swiatek":2.10,"A. Sabalenka":1.80},
+           Ladbrokes:{"I. Swiatek":2.04,"A. Sabalenka":1.84},
+           TAB:{"I. Swiatek":1.98,"A. Sabalenka":1.88},
+           Neds:{"I. Swiatek":2.02,"A. Sabalenka":1.98}},
+     ages:{SportsBet:17,Ladbrokes:23,TAB:29,Neds:12}},
+
+    {id:"t3", sport:"ATP Cincinnati", home:"H. Rune", away:"S. Tsitsipas", starts_in_min:230,
+     outcomes:["H. Rune","S. Tsitsipas"],
+     odds:{SportsBet:{"H. Rune":1.80,"S. Tsitsipas":2.05},
+           Ladbrokes:{"H. Rune":1.78,"S. Tsitsipas":2.08},
+           TAB:{"H. Rune":1.83,"S. Tsitsipas":2.00},
+           Neds:{"H. Rune":1.76,"S. Tsitsipas":2.12}},
+     ages:{SportsBet:35,Ladbrokes:28,TAB:47,Neds:20}}
+  ]
+};
+
+/* ============================================================
+   PAIRWISE ENGINE — mirrors arbtool/pairs.py, verified to agree exactly.
+
+   For each pair of books, restrict the market to those two and take the best
+   price per outcome within that restriction. That automatically picks the
+   optimal assignment of outcomes to books. A pair only counts as arbitrage if
+   both books are actually used: one book holding every best price is not a
+   cross-book arb and is not placeable, since books will not take both sides.
+   ============================================================ */
+function evaluatePair(g, a, b){
+  const oa = g.odds[a], ob = g.odds[b];
+  if(!oa || !ob) return null;
+  const legs = [];
+  for(const o of g.outcomes){
+    const va = oa[o], vb = ob[o];
+    if(!(va > 1) && !(vb > 1)) return null;        // outcome uncovered by this pair
+    legs.push((va ?? 0) >= (vb ?? 0) ? {o, book:a, odds:va} : {o, book:b, odds:vb});
+  }
+  const S = legs.reduce((s,l)=> s + 1/l.odds, 0);
+  const usesBoth = new Set(legs.map(l=>l.book)).size === 2;
+  return {a, b, margin:(1/S - 1)*100, inverseSum:S, arb: S < 1 && usesBoth, usesBoth, legs};
+}
+
+function computePairs(g, books){
+  const present = books.filter(b => g.odds[b]);
+  const out = [];
+  for(let i=0;i<present.length;i++)
+    for(let j=i+1;j<present.length;j++){
+      const r = evaluatePair(g, present[i], present[j]);
+      if(r) out.push(r);
+    }
+  out.sort((x,y)=> y.margin - x.margin);
+  return out;
+}
+
+function hydrate(data){
+  const books = data.books || [];
+  for(const g of data.games) if(!g.pairs) g.pairs = computePairs(g, books);
+  return data;
+}
+
+/* ============================================================
+   STAKING — mirrors arbtool/core.py allocate()
+   Round every leg down to a placeable increment, then hand the remainder,
+   one increment at a time, to whichever leg currently returns least. That
+   maximises the guaranteed payout and keeps total outlay within the stake.
+   ============================================================ */
+function allocate(legs, total, increment=1){
+  const inv = legs.map(l => 1/l.odds);
+  const S = inv.reduce((a,b)=>a+b,0);
+  const stakes = inv.map(v => Math.floor(total*(v/S)/increment)*increment);
+  let left = total - stakes.reduce((a,b)=>a+b,0);
+  let guard = 0;
+  while(left >= increment - 1e-9 && guard++ < 100000){
+    let worst = 0;
+    for(let i=1;i<legs.length;i++)
+      if(stakes[i]*legs[i].odds < stakes[worst]*legs[worst].odds) worst = i;
+    stakes[worst] += increment; left -= increment;
+  }
+  const outlay = stakes.reduce((a,b)=>a+b,0);
+  const rets = stakes.map((s,i)=> s*legs[i].odds);
+  return {stakes, outlay, rets, worst:Math.min(...rets), best:Math.max(...rets),
+          profit: Math.min(...rets) - outlay};
+}
+
+/** Smallest total stake at which this edge still clears after rounding. */
+function minViableStake(legs, increment){
+  for(let t = increment*2; t <= 20000; t += increment)
+    if(allocate(legs, t, increment).profit > 0) return t;
+  return null;
+}
+
+/* ============================================================ */
+
+let DATA = hydrate(DEMO);
+let BOOKS = DEMO.books;
+const INCREMENT = 1;              // books take whole dollars
+
+const $ = id => document.getElementById(id);
+const money = n => '$' + n.toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:2});
+const money0 = n => '$' + n.toLocaleString(undefined,{maximumFractionDigits:0});
+const esc = s => String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const stakeVal = () => +$('stake').value || 1500;
+
+/** Everything the UI needs to know about a game's best play, in one place. */
+function play(g){
+  const top = g.pairs[0];
+  const nArb = g.pairs.filter(p=>p.arb).length;
+  if(!nArb) return {top, nArb, alloc:null, profit:0, placeable:false};
+  const alloc = allocate(top.legs, stakeVal(), INCREMENT);
+  return {top, nArb, alloc, profit:alloc.profit, placeable: alloc.profit > 0};
+}
+
+/* ---------- summary ---------- */
+function renderSummary(){
+  const games = DATA.games, stake = stakeVal();
+  const plays = games.map(play);
+  const placeable = plays.filter(p => p.placeable);
+  const best = plays.reduce((m,p)=> Math.max(m, p.profit), 0);
+  const bestPct = plays.reduce((m,p)=> Math.max(m, p.top?.margin ?? -99), -99);
+  const combined = placeable.reduce((s,p)=> s + p.profit, 0);
+  const totalPairs = games.reduce((n,g)=> n + g.pairs.filter(p=>p.arb).length, 0);
+
+  $('summary').innerHTML = `
+    <div class="stat ${best>0?'hot':''}">
+      <div class="k">Best play pays</div>
+      <div class="v ${best>0?'pos':''}">${best>0?money(best):'—'}</div>
+      <div class="s">on ${money0(stake)}${bestPct>0?' · '+bestPct.toFixed(2)+'%':''}</div></div>
+    <div class="stat ${placeable.length?'hot':''}">
+      <div class="k">Playable now</div>
+      <div class="v ${placeable.length?'pos':''}">${placeable.length}</div>
+      <div class="s">of ${games.length} games live</div></div>
+    <div class="stat">
+      <div class="k">All edges combined</div>
+      <div class="v ${combined>0?'pos':''}">${combined>0?money(combined):'—'}</div>
+      <div class="s">${money0(stake)} on each</div></div>
+    <div class="stat">
+      <div class="k">Working pairings</div>
+      <div class="v">${totalPairs}</div>
+      <div class="s">across the board</div></div>
+    <div class="stat">
+      <div class="k">Books tracked</div>
+      <div class="v">${BOOKS.length}</div>
+      <div class="s">${BOOKS.length*(BOOKS.length-1)/2} pairings per game</div></div>`;
+}
+
+/* ---------- at-a-glance board ----------
+   Eight NRL games plus tennis will not fit as expanded cards. This is the scan
+   layer: one row per game, sorted by what it pays, click through to the detail. */
+function renderBoard(games){
+  if(games.length < 4){ $('board').innerHTML = ''; return; }
+  const stake = stakeVal();
+  let h = `<div class="board"><h4>
+      <span>Every game — ${games.length} live</span>
+      <span class="hint">click any row to open it below</span></h4>
+    <div class="scroll"><table><thead><tr>
+      <th>Game</th><th>Comp</th><th class="num">Starts</th>
+      <th class="num">Best pairing</th><th class="num">Edge</th>
+      <th class="num">Pays on ${money0(stake)}</th><th class="num">Depth</th>
+    </tr></thead><tbody>`;
+  for(const g of games){
+    const {top, nArb, profit, placeable} = play(g);
+    h += `<tr class="${placeable?'hot':''}" data-jump="${g.id}">
+      <td class="team">${esc(g.home)} <span class="n">v</span> ${esc(g.away)}</td>
+      <td class="n">${esc(g.sport)}</td>
+      <td class="num n">${g.starts_in_min}m</td>
+      <td class="num ${nArb?'':'n'}">${nArb?esc(top.a)+' + '+esc(top.b):'—'}</td>
+      <td class="num ${nArb?'g':'n'}">${top?(top.margin>0?'+':'')+top.margin.toFixed(2)+'%':'—'}</td>
+      <td class="num ${placeable?'g':'n'}">${placeable?money(profit):(nArb?'too thin':'—')}</td>
+      <td class="num ${nArb?'g':'n'}">${nArb}/${g.pairs.length}</td>
+    </tr>`;
+  }
+  $('board').innerHTML = h + `</tbody></table></div></div>`;
+  document.querySelectorAll('[data-jump]').forEach(row => {
+    row.addEventListener('click', () => {
+      const card = document.getElementById('game-'+row.dataset.jump);
+      if(!card) return;
+      card.classList.add('open');
+      card.scrollIntoView({behavior:'smooth', block:'start'});
+    });
+  });
+}
+
+/* ---------- pairwise matrix ---------- */
+function matrixHTML(g){
+  const key = (a,b)=> [a,b].sort().join('|');
+  const map = {};
+  g.pairs.forEach(p => map[key(p.a,p.b)] = p);
+  const bestKey = g.pairs[0] && g.pairs[0].arb ? key(g.pairs[0].a,g.pairs[0].b) : null;
+
+  let h = `<div class="matrix-wrap"><table class="matrix"><thead><tr><th></th>`;
+  BOOKS.forEach(b => h += `<th>${esc(b)}</th>`);
+  h += `</tr></thead><tbody>`;
+  BOOKS.forEach((rb,i) => {
+    h += `<tr><th class="row">${esc(rb)}</th>`;
+    BOOKS.forEach((cb,j) => {
+      if(i===j){ h += `<td class="self">—</td>`; return; }
+      const p = map[key(rb,cb)];
+      if(!p){ h += `<td class="self">·</td>`; return; }
+      const k = key(rb,cb);
+      const cls = k===bestKey ? 'best' : (p.arb ? 'arb' : '');
+      h += `<td class="${cls}" title="${esc(rb)} + ${esc(cb)}">${p.margin>0?'+':''}${p.margin.toFixed(2)}%</td>`;
+    });
+    h += `</tr>`;
+  });
+  h += `</tbody></table></div>`;
+
+  const nArb = g.pairs.filter(p=>p.arb).length;
+  h += `<div class="matrix-legend">`;
+  if(nArb){
+    h += `<strong style="color:var(--series)">${nArb} of ${g.pairs.length} pairings arbitrage.</strong>
+          The boxed cell is the best. `;
+    h += nArb >= 3
+      ? `With this many working you have somewhere to go if a price moves or a book caps your stake.`
+      : nArb === 2 ? `Two working pairings gives you one fallback.`
+      : `Only one pairing works — if either price moves it is gone.`;
+  } else {
+    h += `No pairing crosses. Figures are the overround you would pay to back both sides through that combination.`;
+  }
+  return h + `</div>`;
+}
+
+/* ---------- prices ---------- */
+function oddsHTML(g){
+  const bestPer = {};
+  g.outcomes.forEach(o => {
+    let bb=null, bv=-1;
+    BOOKS.forEach(b => { const v=g.odds[b]?.[o]; if(v>bv){bv=v;bb=b;} });
+    bestPer[o]=bb;
+  });
+  let h = `<table class="led"><thead><tr><th>Bookmaker</th>`;
+  g.outcomes.forEach(o => h += `<th class="num">${esc(o)}</th>`);
+  h += `<th class="num">Overround</th><th class="num">Updated</th></tr></thead><tbody>`;
+  BOOKS.forEach(b => {
+    const row = g.odds[b]; if(!row) return;
+    const inv = g.outcomes.reduce((s,o)=> s + 1/row[o], 0);
+    const age = g.ages?.[b];
+    h += `<tr><td>${esc(b)}</td>`;
+    g.outcomes.forEach(o => h += `<td class="num ${bestPer[o]===b?'top':''}">${row[o].toFixed(2)}</td>`);
+    h += `<td class="num" style="font-weight:400;color:var(--muted)">${((inv-1)*100).toFixed(2)}%</td>
+          <td class="num"><span class="age ${age>60?'old':''}">${age!=null?age+'s ago':'—'}</span></td></tr>`;
+  });
+  return h + `</tbody></table>`;
+}
+
+/* ---------- betting slip ---------- */
+function slipHTML(g){
+  const {top:p, alloc:a, placeable} = play(g);
+  if(!p || !p.arb) return '';
+  const stake = stakeVal();
+
+  // A thin edge can survive in theory and die on the betslip: books take whole
+  // dollars, and rounding two legs can cost more than the edge is worth.
+  if(!placeable){
+    const need = minViableStake(p.legs, INCREMENT);
+    return `<div class="section-label">Betting slip — ${esc(p.a)} + ${esc(p.b)}</div>
+      <div class="risk" style="border-left-color:var(--red)">
+        <b style="color:var(--red)">This ${p.margin.toFixed(2)}% edge does not survive rounding.</b><br>
+        At whole-dollar stakes on ${money(stake)} the best split returns ${money(a.worst)}
+        against ${money(a.outlay)} outlay — a guaranteed <b>loss of ${money(Math.abs(a.profit))}</b>.
+        The edge is real but too thin for this stake.<br><br>
+        ${need ? `Raise the total stake to <b>${money0(need)}</b> and it clears again.`
+               : `No practical stake makes this one work.`}
+        Otherwise skip it — an edge this thin rarely survives the seconds between legs anyway.
+      </div>`;
+  }
+
+  // Place the longest price first: it moves furthest on the same shift in
+  // implied probability, and it is the one about to be corrected.
+  const order = p.legs.map((l,i)=>({...l,i})).sort((x,y)=> y.odds - x.odds);
+  let h = `<div class="section-label">Betting slip — ${esc(p.a)} + ${esc(p.b)}</div><div class="slip">`;
+  order.forEach((l,n) => {
+    h += `<div class="leg ${n?'second':''}">
+      <div class="order">${n===0?'<b>Place first</b> — longest price, most likely to move':'Then'}</div>
+      <div class="book">${esc(l.book)}</div>
+      <div class="pickline">Back <b>${esc(l.o)}</b> @ <b>${l.odds.toFixed(2)}</b></div>
+      <div class="stake">${money(a.stakes[l.i])}</div>
+      <div class="ret">returns ${money(a.rets[l.i])}</div>
+    </div>`;
+  });
+  h += `</div><div class="totals">
+    <div>Outlay<b>${money(a.outlay)}</b></div>
+    <div>Returns<b>${money(a.worst)} – ${money(a.best)}</b></div>
+    <div>Profit, guaranteed<b class="pos">${money(a.profit)}</b></div>
+    <div>Return on outlay<b class="pos">${(a.profit/a.outlay*100).toFixed(2)}%</b></div>
+  </div>`;
+
+  const exposure = a.stakes[order[0].i];
+  h += `<div class="risk">
+    Stakes are rounded to whole dollars and the profit above is the worst case
+    <b>after</b> that rounding, not the headline ${p.margin.toFixed(2)}%.
+    If the second leg does not fill you are left unhedged on <b>${money(exposure)}</b> —
+    that, not the ${money(a.outlay)} outlay, is what is actually at risk.
+  </div>`;
+  return h;
+}
+
+/* ---------- games ---------- */
+function renderGames(){
+  const arbOnly = $('arbOnly').checked;
+  const all = [...DATA.games].sort((x,y)=>{
+    const pa = play(x), pb = play(y);
+    return (pb.profit - pa.profit) || ((y.pairs[0]?.margin??-99) - (x.pairs[0]?.margin??-99));
+  });
+  renderBoard(all);
+  const games = arbOnly ? all.filter(g => g.pairs.some(p=>p.arb)) : all;
+
+  if(!games.length){
+    $('games').innerHTML = `<div class="empty"><h3>${arbOnly?'No arbitrage right now':'Nothing to show'}</h3>
+      <p>${arbOnly
+        ? 'No game currently has a pairing that crosses. Untick “arb only” to see every game and how close each is getting — that is usually the more useful view.'
+        : 'No pre-match games with two or more of your books quoting. Normal between fixtures; the productive window is the couple of hours before a start.'}</p></div>`;
+    return;
+  }
+
+  let h = '';
+  for(const g of games){
+    const {top, nArb, profit, placeable} = play(g);
+    const oldest = Math.max(0, ...Object.values(g.ages||{}));
+    // Only an actually-payable edge opens itself. Everything else stays shut so
+    // a Saturday with eight NRL games plus tennis is still one screen.
+    h += `<div class="game ${nArb?'arb':''} ${placeable?'open':''}" id="game-${g.id}">
+      <div class="game-head" data-game="${g.id}">
+        <span class="chev">›</span>
+        <div style="flex:1;min-width:210px">
+          <div class="teams">${esc(g.home)}<span class="vs">v</span>${esc(g.away)}</div>
+          <div class="meta">
+            <span>${esc(g.sport)}</span>
+            <span>starts in ${g.starts_in_min} min</span>
+            <span>oldest quote ${oldest}s</span>
+            ${nArb?`<span class="pill depth">${nArb} of ${g.pairs.length} pairings</span>`:''}
+            ${nArb && !placeable?`<span class="pill thin">too thin at this stake</span>`:''}
+            ${oldest>60?`<span class="pill warn">stale</span>`:''}
+          </div>
+        </div>
+        <div class="edge ${placeable?'pos':'neg'}">
+          ${placeable?money(profit):(top?(top.margin>0?'+':'')+top.margin.toFixed(2)+'%':'—')}
+          <small>${placeable?`on ${money0(stakeVal())} · ${top.margin.toFixed(2)}%`
+                  :(nArb?'edge too thin':'no arb')}</small>
+        </div>
+      </div>
+      <div class="game-body">
+        <div class="section-label">Pairwise margin — every combination of your books</div>
+        ${matrixHTML(g)}
+        <div class="section-label">Prices</div>
+        ${oddsHTML(g)}
+        ${slipHTML(g)}
+      </div>
+    </div>`;
+  }
+  $('games').innerHTML = h;
+  document.querySelectorAll('.game-head').forEach(el => {
+    el.addEventListener('click', () =>
+      document.getElementById('game-'+el.dataset.game).classList.toggle('open'));
+  });
+}
+
+function renderAll(){ renderSummary(); renderGames(); }
+
+/* ---------- reading the snapshot (free) vs fetching new odds (costs credits) ----
+   Two separate actions on purpose. The page re-reads and re-renders as often as
+   it likes; only the Fetch button reaches The Odds API, and only when pressed.  */
+
+/** Age of the prices themselves, not time since the page last redrew.
+    Showing "4s ago" for a nine-minute-old snapshot would understate staleness,
+    and staleness is what decides whether an edge is still there. */
+function snapshotAge(){
+  if(!DATA || !DATA.fetched_at) return null;
+  return Math.max(0, (Date.now() - Date.parse(DATA.fetched_at)) / 1000);
+}
+
+function paintAge(){
+  const s = snapshotAge();
+  if(s === null){ $('lastRefresh').textContent = 'demo data'; return; }
+  $('lastRefresh').textContent =
+    s < 90 ? `${Math.round(s)}s ago` : `${Math.floor(s/60)}m ${Math.round(s%60)}s ago`;
+  const dot = $('statusDot');
+  // Past the staleness ceiling the prices are a claim about the past.
+  if(s > 300)      { dot.className = 'dot off';   $('statusText').textContent = 'Stale — fetch again'; }
+  else if(s > 120) { dot.className = 'dot stale'; $('statusText').textContent = 'Ageing'; }
+}
+
+/** Re-read the cached snapshot. No upstream call, no credits. */
+async function refresh(){
+  try{
+    const res = await fetch('/api/opportunities');
+    if(!res.ok) throw new Error('HTTP ' + res.status);
+    DATA = hydrate(await res.json());
+    BOOKS = DATA.books || BOOKS;
+    $('credits').textContent = DATA.credits_remaining ?? '—';
+    $('statusDot').className = 'dot live-pulse';
+    $('statusText').textContent = DATA.auto ? 'Live (auto)' : 'Live';
+    if(DATA.poll_cost) $('fetchBtn').textContent = `Fetch odds · ${DATA.poll_cost} cr`;
+  }catch(e){
+    // No server, or no snapshot yet — hold what is on screen rather than blanking it.
+    $('statusDot').className = 'dot off';
+    $('statusText').textContent = 'Demo data — run serve.py for live';
+  }
+  renderAll(); paintAge();
+}
+
+/** Spends credits. Only ever called from an explicit click. */
+async function fetchOdds(){
+  const btn = $('fetchBtn'), was = btn.textContent;
+  btn.disabled = true; btn.textContent = 'Fetching…';
+  $('statusText').textContent = 'Calling The Odds API…';
+  try{
+    const res = await fetch('/api/poll');
+    const body = await res.json();
+    if(!body.ok) throw new Error(body.error || 'poll failed');
+    DATA = hydrate(body.payload);
+    BOOKS = DATA.books || BOOKS;
+    $('credits').textContent = DATA.credits_remaining ?? '—';
+    $('statusDot').className = 'dot live-pulse';
+    $('statusText').textContent = `Live · spent ${body.spent} credit(s)`;
+  }catch(e){
+    $('statusDot').className = 'dot off';
+    $('statusText').textContent = 'Fetch failed — ' + e.message;
+  }
+  btn.disabled = false;
+  btn.textContent = DATA && DATA.poll_cost ? `Fetch odds · ${DATA.poll_cost} cr` : was;
+  renderAll(); paintAge();
+}
+
+// Ticks the displayed age only. Deliberately does not fetch anything.
+setInterval(paintAge, 1000);
+
+$('refreshBtn').addEventListener('click', refresh);
+$('fetchBtn').addEventListener('click', fetchOdds);
+$('stake').addEventListener('input', renderAll);
+$('arbOnly').addEventListener('change', renderAll);
+
+renderAll();
+refresh();
+</script>
+</body>
+</html>

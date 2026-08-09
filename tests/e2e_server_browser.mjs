@@ -1,0 +1,20 @@
+// Dashboard against a running server — proves the live path works end to end.
+import pw from '/home/claude/.npm-global/lib/node_modules/playwright/index.js';
+const b = await pw.chromium.launch();
+const p = await b.newPage({viewport:{width:1240,height:1000}, deviceScaleFactor:2});
+const errs=[]; p.on('pageerror',e=>errs.push(e.message));
+await p.goto('http://127.0.0.1:8792/');
+await p.waitForTimeout(1500);
+console.log('status text     :', (await p.textContent('#statusText')).trim());
+console.log('credits shown   :', (await p.textContent('#credits')).trim());
+console.log('games rendered  :', await p.locator('.game').count());
+console.log('teams           :', (await p.textContent('.teams')).replace(/\s+/g,' ').trim());
+console.log('best edge tile  :', (await p.textContent('.stat .v')).trim());
+const slip = await p.locator('.slip').count();
+console.log('slip rendered   :', slip);
+if(slip) console.log('totals          :', (await p.textContent('.totals')).replace(/\s+/g,' ').trim());
+console.log('matrix cells    :', await p.locator('table.matrix td').count());
+console.log('best cell marked:', await p.locator('td.best').count());
+await p.screenshot({path:'shot_live.png', fullPage:true});
+console.log('errors          :', errs.length?errs.join('|'):'none');
+await b.close();

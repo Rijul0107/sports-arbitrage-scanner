@@ -1,0 +1,26 @@
+# Arb Desk — scan for arbitrage and alert on Telegram.
+#
+# Install:   crontab deploy/crontab.txt          (replaces your whole crontab)
+#   or:      crontab -l > /tmp/c && cat deploy/crontab.txt >> /tmp/c && crontab /tmp/c
+# Check:     crontab -l
+# Remove:    crontab -r
+#
+# Times are the machine's local zone, already Australia/Sydney.
+# Window is 06:40 to 23:00, every 20 minutes: 50 runs a day.
+#
+# Cost is 1 credit per sport key that returns games — empty responses are free.
+# At 11 keys that is about 550 credits a day and 16,500 a month, against the
+# $30 plan's 20,000. In the September-October finals period the key count rises
+# to roughly 15 and this schedule would exceed the plan; run
+# `python3 books.py --sports` (free) to see the live cost and drop to */30 if
+# it gets close.
+#
+# Nothing is sent unless a market crosses. The same fixture is suppressed for
+# six hours. Failed scans are logged, and only alert after three in a row.
+
+SHELL=/bin/zsh
+PATH=/usr/local/bin:/usr/bin:/bin
+
+40 6    * * *   cd /Users/rijulkhunger/Downloads/arb-tool && /usr/local/bin/python3 alert.py >> alert.log 2>&1
+*/20 7-22 * * * cd /Users/rijulkhunger/Downloads/arb-tool && /usr/local/bin/python3 alert.py >> alert.log 2>&1
+0 23    * * *   cd /Users/rijulkhunger/Downloads/arb-tool && /usr/local/bin/python3 alert.py >> alert.log 2>&1

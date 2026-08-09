@@ -1,0 +1,4 @@
+# Arb Desk runs on the Python standard library alone — urllib, sqlite3,
+# http.server. There is nothing to install.
+#
+# Python 3.9+ required.

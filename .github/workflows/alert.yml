@@ -1,0 +1,59 @@
+name: Arb scan
+
+# Every 20 minutes, but only across the UTC hours that can contain 06:40-23:00
+# Sydney. Sydney is UTC+10 in winter and UTC+11 under daylight saving, so the
+# window slides; this covers the union of both and alert.py trims it exactly
+# using the timezone database. Runs outside the window exit before making any
+# request, so they cost no API credits — only a few seconds of runner time.
+on:
+  schedule:
+    - cron: "*/20 0-13,19-23 * * *"
+  workflow_dispatch:            # lets you fire one by hand from the Actions tab
+
+# Two scans at once would double-spend credits and could send the same alert
+# twice. Queue rather than cancel: a scan already talking to the API should be
+# allowed to finish and record what it sent.
+concurrency:
+  group: arb-scan
+  cancel-in-progress: false
+
+jobs:
+  scan:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"    # zoneinfo needs 3.9+; no packages to install
+
+      # Suppression state has to survive between runs or a standing arbitrage
+      # is re-sent every 20 minutes. A unique key each run with a shared prefix
+      # is the rolling-cache pattern: save a new entry, restore the newest.
+      - name: Restore alert state
+        uses: actions/cache/restore@v4
+        with:
+          path: .alert_state
+          key: alert-state-${{ github.run_id }}
+          restore-keys: alert-state-
+
+      - name: Scan and alert
+        env:
+          ODDS_API_KEY: ${{ secrets.ODDS_API_KEY }}
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHAT_IDS: ${{ secrets.TELEGRAM_CHAT_IDS }}
+          ARB_STATE_DIR: .alert_state
+        run: |
+          mkdir -p .alert_state
+          python3 alert.py
+
+      # always(): a failed scan still needs its consecutive-failure count kept,
+      # or the third-strike outage alert would never fire.
+      - name: Save alert state
+        if: always()
+        uses: actions/cache/save@v4
+        with:
+          path: .alert_state
+          key: alert-state-${{ github.run_id }}
