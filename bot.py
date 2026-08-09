@@ -58,6 +58,7 @@ MAX_QUOTE = 100.0
 # Descriptions are capped by Telegram at 256 characters and must be plain text.
 COMMANDS = [
     {"command": "last",  "description": "Show the most recent alert again"},
+    {"command": "games", "description": "Every game I still have prices for"},
     {"command": "stake", "description": "Restake it at a different total — /stake 4000"},
     {"command": "quote", "description": "Check another book's price — /quote bet365 2.15 roosters"},
     {"command": "help",  "description": "What I understand"},
@@ -74,6 +75,8 @@ HELP = (
     "<code>bet365 1.72 2.15</code>  (home price first)\n"
     "<code>bet365 roosters 2.15</code>\n"
     "<code>bet365 has 2.15 on the roosters</code>\n\n"
+    "Name a team from any recent alert and I will use that game — not just the "
+    "newest one. <b>/games</b> lists what I still have prices for.\n\n"
     "<b>/last</b> — show the most recent alert again\n\n"
     "<i>No new odds are fetched. Replies recompute from the prices in the "
     "alert, so check both books before staking.</i>"
@@ -158,6 +161,31 @@ def _match_outcome(token: str, outcomes: list):
                 if any(w == t or w.startswith(t) or t.startswith(w)
                        for w in o.lower().split() if len(w) >= 3)]
     return hits[0] if len(hits) == 1 else None
+
+
+def _pick_item(text: str, items: list):
+    """Which stored alert is this quote about?
+
+    A price is useless against the wrong fixture, and alerts stay in the file
+    for a while, so a team named in the message selects the game rather than
+    always assuming the newest one. Naming nothing means the newest, which is
+    what a reply to a just-arrived alert should do.
+
+    Returns (index, None) or (None, message) when a name is in two fixtures —
+    ambiguity is asked about, never resolved by recency."""
+    if not items:
+        return None, None
+    toks = [t.strip("@$()").rstrip(".,:;") for t in text.split()]
+    hits = [i for i, it in enumerate(items)
+            if any(_match_outcome(t, _outcomes(it)) for t in toks)]
+    if len(hits) == 1:
+        return hits[0], None
+    if not hits:
+        return 0, None                       # no team named: the newest alert
+    listed = "\n".join(f"    {e(items[i]['home'])} v {e(items[i]['away'])}"
+                       for i in hits)
+    return None, (f"That name is in more than one alert:\n{listed}\n"
+                  f"Name the other team as well so I know which game.")
 
 
 def parse_quote(text: str, item: dict):
@@ -452,6 +480,19 @@ def handle(text: str, cfg) -> str | None:
             return "No alerts yet. You will get one when a market crosses."
         return restake(items[0], cfg.TOTAL_STAKE, cfg)
 
+    if cmd == "/games" or low == "games":
+        if not items:
+            return "No alerts yet. You will get one when a market crosses."
+        lines = ["<b>Games I can price</b>",
+                 "<i>Name a team to quote against any of these.</i>", ""]
+        for it in items:
+            # Bounded: a missing or corrupt timestamp should print nothing
+            # rather than a nonsense age that makes the whole list look broken.
+            age = (time.time() - it.get("at", 0)) / 3600
+            lines.append(f"{e(it['home'])} v {e(it['away'])}"
+                         + (f"  <i>({age:.0f}h ago)</i>" if 1 <= age <= 720 else ""))
+        return "\n".join(lines)
+
     # Tapping /quote or /stake with nothing after it should explain itself
     # rather than sit silent — the menu entry is the whole point of the prompt.
     if cmd in ("/quote", "/stake") and not t:
@@ -463,13 +504,16 @@ def handle(text: str, cfg) -> str | None:
     # mistaken for a bare stake — but check it first regardless, because
     # parse_amount would reject it silently and the user would get no reply.
     if items:
-        q = parse_quote(t, items[0])
+        idx, ask = _pick_item(t, items)
+        if ask:
+            return ask
+        q = parse_quote(t, items[idx])
         if isinstance(q, str):
             return q                     # unreadable quote, say why
         if q is not None:
             book, prices = q
-            reply = quote(items[0], book, prices, cfg)
-            _remember_quote(items, book, prices, cfg)
+            reply = quote(items[idx], book, prices, cfg)
+            _remember_quote(items, idx, book, prices, cfg)
             return reply
 
     amount = parse_amount(t)
@@ -483,11 +527,15 @@ def handle(text: str, cfg) -> str | None:
     return restake(items[0], amount, cfg)
 
 
-def _remember_quote(items: list, book: str, prices: dict, cfg) -> None:
+def _remember_quote(items: list, idx: int, book: str, prices: dict, cfg) -> None:
     """Keep a quoted price so a following stake reply restakes what was just
     shown. Without this, sending 'bet365 2.15' and then '4000' would silently
-    restake the old pairing and quote a profit the user was not offered."""
-    item = items[0]
+    restake the old pairing and quote a profit the user was not offered.
+
+    The quoted game also moves to the front, so a bare stake afterwards applies
+    to the game just discussed rather than to whichever alert arrived last."""
+    item = items.pop(idx)
+    items.insert(0, item)
     board = _board(item)
     board.setdefault(book, {}).update(prices)
     item["board"] = board

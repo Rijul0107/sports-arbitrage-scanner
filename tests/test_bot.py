@@ -212,6 +212,52 @@ class TestQuote(unittest.TestCase):
         self.assertIn("not the full board", out)
 
 
+SECOND_ITEM = {
+    "sig": "e2", "home": "Brisbane Broncos", "away": "Melbourne Storm",
+    "sport": "NRL", "at": 0,
+    "display": ["Brisbane Broncos", "Melbourne Storm"],
+    "board": {"SportsBet": {"Brisbane Broncos": 1.90, "Melbourne Storm": 1.95},
+              "Ladbrokes": {"Brisbane Broncos": 2.00, "Melbourne Storm": 1.88}},
+    "legs": [{"book": "Ladbrokes", "outcome": "Brisbane Broncos", "odds": 2.00},
+             {"book": "SportsBet", "outcome": "Melbourne Storm", "odds": 1.95}],
+}
+
+
+class TestPickGame(unittest.TestCase):
+    """A price is useless against the wrong fixture. Naming a team has to
+    select the game, or a quote meant for one match would be priced against
+    another and the reply would be confidently wrong."""
+
+    def setUp(self):
+        # BOARD_ITEM, not ITEM: ITEM is Panthers v *Storm*, so "storm" would
+        # legitimately match both fixtures and the ambiguity branch would fire.
+        self.items = [dict(BOARD_ITEM), dict(SECOND_ITEM)]
+
+    def test_naming_a_team_selects_its_game(self):
+        idx, ask = bot._pick_item("bet365 storm 2.30", self.items)
+        self.assertEqual(idx, 1)
+        self.assertIsNone(ask)
+
+    def test_naming_nothing_uses_the_newest(self):
+        idx, ask = bot._pick_item("bet365 1.72 2.15", self.items)
+        self.assertEqual(idx, 0)
+        self.assertIsNone(ask)
+
+    def test_a_name_in_two_games_asks_instead_of_guessing(self):
+        # ITEM is Panthers v Storm, and the second is Storm v Titans, so "storm"
+        # genuinely names two fixtures.
+        both = [dict(ITEM), dict(SECOND_ITEM,
+                                 home="Melbourne Storm", away="Gold Coast Titans",
+                                 display=["Melbourne Storm", "Gold Coast Titans"],
+                                 legs=[{"book": "TAB", "outcome": "Melbourne Storm",
+                                        "odds": 2.0},
+                                       {"book": "Neds", "outcome": "Gold Coast Titans",
+                                        "odds": 2.0}])]
+        idx, ask = bot._pick_item("bet365 storm 2.30", both)
+        self.assertIsNone(idx)
+        self.assertIn("more than one alert", ask)
+
+
 class TestHandle(unittest.TestCase):
     def setUp(self):
         self.backup = bot.LAST_FILE.read_bytes() if bot.LAST_FILE.exists() else None
@@ -238,6 +284,24 @@ class TestHandle(unittest.TestCase):
     def test_no_alerts_yet_is_explained(self):
         bot.LAST_FILE.write_text("[]")
         self.assertIn("No alert", bot.handle("4000", config))
+
+    def test_quoting_an_older_game_then_staking_it(self):
+        """Quote a game that is not the newest, then send a total. The stake
+        must apply to the game just discussed, not to whichever alert happened
+        to arrive last."""
+        bot.LAST_FILE.write_text(json.dumps([dict(BOARD_ITEM), dict(SECOND_ITEM)]))
+        out = bot.handle("bet365 storm 2.30", config)
+        self.assertIn("Melbourne Storm", out)
+        self.assertNotIn("Sydney Roosters", out)
+        after = bot.handle("/stake 3000", config)
+        self.assertIn("Melbourne Storm", after)
+        self.assertIn("2.30", after)
+
+    def test_games_lists_every_stored_fixture(self):
+        bot.LAST_FILE.write_text(json.dumps([dict(BOARD_ITEM), dict(SECOND_ITEM)]))
+        out = bot.handle("/games", config)
+        self.assertIn("Sydney Roosters", out)
+        self.assertIn("Melbourne Storm", out)
 
     def test_slash_commands(self):
         bot.LAST_FILE.write_text(json.dumps([dict(BOARD_ITEM)]))
