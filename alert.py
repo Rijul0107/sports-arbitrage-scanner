@@ -92,6 +92,16 @@ KEEP_LAST = 10
 FAIL_FILE = STATE_DIR / ".alert_fails.json"
 FAIL_ALERT_AT = 3
 
+# bot.py answers replies; nothing about a dead listener is visible from the
+# outside. You would discover it by sending a price from in front of a betting
+# app and getting nothing back, which is the worst possible moment. The bot
+# touches a file as it polls; the scan is already running on a schedule, so it
+# is the natural place to notice that file going stale.
+ALIVE_FILE = STATE_DIR / ".bot_alive.json"
+BOT_STALE_MIN = 15          # comfortably past one ~50s long-poll cycle
+BOT_WARN_COOLDOWN_H = 6.0   # a dead bot stays dead; do not say so every 20 min
+BOT_WARNED_FILE = STATE_DIR / ".bot_warned.json"
+
 
 def in_window(now=None) -> bool:
     """Is it inside the hours we scan, in Sydney time?
@@ -162,6 +172,33 @@ def record_failure() -> int:
 def clear_failures() -> None:
     if FAIL_FILE.exists():
         FAIL_FILE.unlink(missing_ok=True)
+
+
+def check_bot_alive(now: float = None):
+    """Has the reply listener stopped? Returns a message to send, or None.
+
+    Only warns once the file has existed at least once — a machine that has
+    never run bot.py is not a fault, and warning about it would train the user
+    to ignore the message that matters. Warns at most once per cooldown, so a
+    listener that stays down does not turn every scan into a notification."""
+    now = now or time.time()
+    beat = _read_json(ALIVE_FILE, None)
+    if not beat:
+        return None
+    quiet_min = (now - beat.get("at", 0)) / 60
+    if quiet_min < BOT_STALE_MIN:
+        if BOT_WARNED_FILE.exists():
+            BOT_WARNED_FILE.unlink(missing_ok=True)
+        return None
+    warned = _read_json(BOT_WARNED_FILE, {}).get("at", 0)
+    if now - warned < BOT_WARN_COOLDOWN_H * 3600:
+        return None
+    _write_json(BOT_WARNED_FILE, {"at": now})
+    return ("<b>The reply bot has stopped.</b>\n"
+            f"Last seen {quiet_min:.0f} minutes ago. Scans and alerts are "
+            f"unaffected — you will still be told when a market crosses — but "
+            f"replying with a stake or a price will get no answer until it is "
+            f"back.")
 
 
 def save_last(opps) -> None:
@@ -405,6 +442,13 @@ def main() -> int:
               f"{WINDOW_START[0]:02d}:{WINDOW_START[1]:02d}-"
               f"{WINDOW_END[0]:02d}:{WINDOW_END[1]:02d} Sydney — no scan")
         return 0
+
+    # Before spending a credit: a listener that died is worth knowing about
+    # whether or not this scan finds anything.
+    dead = check_bot_alive()
+    if dead and not args.dry_run and chat_ids:
+        send(token, chat_ids, dead)
+        print("  reply bot looks stopped — warned")
 
     api = OddsAPI(config.API_KEY, session_budget=args.budget,
                   min_plan_credits=config.MIN_PLAN_CREDITS)

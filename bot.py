@@ -37,7 +37,8 @@ import time
 from pathlib import Path
 
 import config
-from alert import LAST_FILE, _call, _read_json, _write_json, e, money, send, whole
+from alert import (ALIVE_FILE, LAST_FILE, _call, _read_json, _write_json, e,
+                   money, send, whole)
 from arbtool.core import allocate, evaluate, recommend_first_leg
 from arbtool.pairs import analyse_game
 
@@ -556,6 +557,10 @@ def poll(token: str, cfg, once: bool = False) -> int:
     register_commands(token)
     print(f"Listening. {len(allowed)} recipient(s). Ctrl-C to stop.")
     while True:
+        # Stamped before the poll, not after: a poll that blocks or hangs is
+        # exactly the failure this is meant to catch, and stamping afterwards
+        # would keep the file fresh only while things already worked.
+        _write_json(ALIVE_FILE, {"at": time.time()})
         try:
             r = _call(token, "getUpdates",
                       {"offset": offset, "timeout": POLL_TIMEOUT})

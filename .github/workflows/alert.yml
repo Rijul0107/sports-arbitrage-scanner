@@ -5,15 +5,18 @@ name: Arb scan
 # window slides; this covers the union of both and alert.py trims it exactly
 # using the timezone database. Runs outside the window exit before making any
 # request, so they cost no API credits — only a few seconds of runner time.
-# Live since 2026-08-09 on the 20,000-credit plan. Cost is 1 credit per sport
-# key that returns games, empty responses are free: 9 keys in season = 9 credits
-# a scan, 50 scans a day = ~450 a day = ~13,500 a month. That leaves headroom,
-# but the September-October finals period brings more keys into season and the
-# count rises. Check with `python3 books.py --sports` (free) and drop to */30 if
-# a scan starts costing more than about 13 credits.
+# SCHEDULE OFF since 2026-08-10: the scan moved to cron on the Sydney droplet,
+# which keeps the same 20-minute cadence this file asked for but actually holds
+# it. GitHub's scheduled runs are best-effort and were firing roughly half the
+# slots — observed gaps of 29, 40, 50 and 30 minutes against a */20 schedule.
+#
+# Leaving both enabled would be worse than either alone: the two hold separate
+# suppression state, so a standing arbitrage would alert twice, and every scan
+# would be paid for twice.
+#
+# Kept as a manual fallback. If the droplet is down, one click here still runs
+# a scan against the same key and the same recipients.
 on:
-  schedule:
-    - cron: "*/20 0-13,19-23 * * *"
   workflow_dispatch:            # fire one by hand from the Actions tab
 
 # Two scans at once would double-spend credits and could send the same alert

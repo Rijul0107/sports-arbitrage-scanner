@@ -9,3 +9,5 @@ alert.log
 .alert_last.json
 .alert_fails.json
 .bot_offset.json
+.bot_alive.json
+.bot_warned.json

@@ -4,7 +4,7 @@ Suppression decides whether a real arbitrage reaches the phone, so the bias
 throughout is to send. Silence is only correct when the same opportunity has
 already gone out recently at no better a price.
 """
-import sys, time, unittest
+import json, sys, time, unittest
 from pathlib import Path
 from types import SimpleNamespace
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
@@ -104,6 +104,57 @@ class TestVerificationNote(unittest.TestCase):
             self.assertIn(f"{leg.book} — {o} showing", msg)
             self.assertIn(f"{leg.odds:.2f}</b> or better", msg)
         self.assertIn("the arbitrage is gone", msg)
+
+
+class TestBotHeartbeat(unittest.TestCase):
+    """A dead reply listener is invisible from outside. You would discover it
+    by sending a price from in front of a betting app and getting nothing."""
+
+    def setUp(self):
+        self.backup = (alert.ALIVE_FILE.read_bytes()
+                       if alert.ALIVE_FILE.exists() else None)
+        alert.BOT_WARNED_FILE.unlink(missing_ok=True)
+
+    def tearDown(self):
+        alert.ALIVE_FILE.unlink(missing_ok=True)
+        alert.BOT_WARNED_FILE.unlink(missing_ok=True)
+        if self.backup is not None:
+            alert.ALIVE_FILE.write_bytes(self.backup)
+
+    def test_never_run_is_not_a_fault(self):
+        """Warning on a machine that has never run the bot would train the user
+        to ignore the message that matters."""
+        alert.ALIVE_FILE.unlink(missing_ok=True)
+        self.assertIsNone(alert.check_bot_alive())
+
+    def test_fresh_heartbeat_is_silent(self):
+        alert.ALIVE_FILE.write_text(json.dumps({"at": time.time()}))
+        self.assertIsNone(alert.check_bot_alive())
+
+    def test_stale_heartbeat_warns_once_then_stays_quiet(self):
+        old = time.time() - (alert.BOT_STALE_MIN + 5) * 60
+        alert.ALIVE_FILE.write_text(json.dumps({"at": old}))
+        first = alert.check_bot_alive()
+        self.assertIsNotNone(first)
+        self.assertIn("stopped", first)
+        # A dead bot stays dead. Saying so every 20 minutes is noise.
+        self.assertIsNone(alert.check_bot_alive())
+
+    def test_warning_says_alerts_still_work(self):
+        """The distinction matters: a stopped listener does not stop alerts,
+        and implying otherwise would have the user watching for nothing."""
+        old = time.time() - (alert.BOT_STALE_MIN + 5) * 60
+        alert.ALIVE_FILE.write_text(json.dumps({"at": old}))
+        self.assertIn("unaffected", alert.check_bot_alive())
+
+    def test_recovery_rearms_the_warning(self):
+        old = time.time() - (alert.BOT_STALE_MIN + 5) * 60
+        alert.ALIVE_FILE.write_text(json.dumps({"at": old}))
+        alert.check_bot_alive()
+        alert.ALIVE_FILE.write_text(json.dumps({"at": time.time()}))
+        self.assertIsNone(alert.check_bot_alive())     # back up, and re-armed
+        alert.ALIVE_FILE.write_text(json.dumps({"at": old}))
+        self.assertIsNotNone(alert.check_bot_alive())
 
 
 class TestMessage(unittest.TestCase):
