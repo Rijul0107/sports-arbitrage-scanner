@@ -53,9 +53,11 @@ REGIONS = "au"
 # The books you hold accounts with
 # ---------------------------------------------------------------------------
 
-# Only these are compared. Pairings grow as n(n-1)/2, so four books gives six
-# and six books gives fifteen. Adding a book costs no credits — The Odds API
-# bills per sport key, and books are a filter on a response already paid for.
+# Only these are compared. Pairings grow as n(n-1)/2, so six books gives
+# fifteen and eleven gives fifty-five. Adding a book costs no credits — The
+# Odds API bills per sport key, and books are a filter on a response already
+# paid for, so a book left out of this list is a price we paid for and threw
+# away.
 #
 # Names must match what the API returns exactly; scan.py silently drops any it
 # does not recognise, which looks identical to "no arbitrage today". Run
@@ -80,33 +82,60 @@ BOOKS = [
     "Neds",
     "PointsBet (AU)",
     "PlayUp",
+    # Added 2026-08-09 once the paid plan was active. Coverage measured over
+    # 380 games across every configured sport that day; the percentage is the
+    # share of games the book quoted at all. Betr outcovers SportsBet, which
+    # was a surprise, and Dabble is thin but appears on tennis specifically.
+    "Betr",         # 32.4% — widest coverage of any AU book in the sample
+    "Unibet",       # 20.0%
+    "TABtouch",     # 15.3%
+    "Bet Right",    # 12.9%
+    "Dabble AU",    #  7.1% — tennis mostly
 ]
 
-# Six books gives fifteen pairings. Ladbrokes and Neds are one Entain trading
-# desk, so treat that as five independent price sources rather than six. On a
-# 23-game board scanned 2026-08-09 they returned identical prices, identical
-# coverage (the same 21 of 23 games) and Neds appeared in zero best pairings —
-# it is kept for coverage, not for disagreement.
+# Betfair is deliberately NOT in that list despite 21.3% coverage and being the
+# most structurally independent price source available (users laying against
+# each other, not a trading desk). COMMISSION_PCT below is a single global
+# number applied to every leg, and Betfair is the only book here that charges
+# commission. Both ways of using it are wrong and both lose money:
+#   - leave it 0, and a Betfair leg's winnings are overstated by the commission,
+#     which turns a genuine-looking 3% arb into a loss after settlement;
+#   - set it to Betfair's rate, and every corporate leg is penalised by a fee
+#     it never charges, hiding almost every real arbitrage.
+# Adding Betfair safely means per-book commission through core.py, pairs.py and
+# the mirrored JavaScript in static/dashboard.html (CLAUDE.md §7). Until that
+# exists, the honest configuration is to leave it out.
 #
-# Adding a book costs no credits: The Odds API bills per sport key, and books
-# are a filter on a response already paid for. There is no reason to run a short
-# list except that a book must actually quote when you are looking.
+# Bet365 is absent because it is not obtainable, not because it was not wanted.
+# The Odds API documents `bet365_au` as paid-plans-only, h2h/spreads/totals,
+# AFL and NRL. Requested by name on 2026-08-09 with the paid key: 8 NRL games
+# and 7 AFL games returned, zero Bet365 prices on any of them.
+
+# Eleven books gives fifty-five pairings. Count is not the same as independence:
+# Ladbrokes and Neds are one Entain trading desk and returned identical prices
+# and identical coverage on a 23-game board, with Neds in zero best pairings.
+# TAB and TABtouch are similarly related. Treat this as roughly nine independent
+# price sources, not eleven.
 #
-# Deliberately left out, and why:
-#   Bet365 AU  — PAID TIER ONLY. Add it when the subscription starts, but expect
-#                little: coverage is h2h/spreads/totals for AFL and NRL only, so
-#                no tennis, and on the board above it would have reached 6 of 23
-#                games. Every best pairing there already ran through SportsBet.
-#   Dabble AU  — paid tier only, coverage unknown.
-#   Betfair    — quoted 1.02/1.02 on a live NRL market, which is not a real
-#                price. Thin exchange markets report garbage, and evaluate()
-#                only rejects prices at or below 1.00, so a stale high side
-#                could manufacture an arb that cannot be placed. Revisit with
-#                COMMISSION_PCT set once the feed has been watched for a while.
-#   Unibet,    — observed quoting only once a game was already under way, never
-#   TABtouch,    on a pre-match fixture days ahead. Useless for how this is used.
-#   Betr,
-#   Bet Right
+# An earlier version of this file dropped Betr, Unibet, TABtouch and Bet Right
+# on the grounds that they "quote only once a game is under way". That was
+# measured on too small a sample and is wrong. Re-measured 2026-08-09 across 379
+# pre-match games: Betr 123, Unibet 75, TABtouch 58, Bet Right 49 — Betr covers
+# more pre-match fixtures than SportsBet does. Four books were being discarded
+# for a reason that did not hold.
+#
+# Coverage percentages look low across the board because the sample spans US
+# sports where AU books quote sparsely. Within NRL, AFL and tennis most of these
+# books quote nearly every fixture.
+#
+# Still deliberately left out:
+#   Bet365 AU  — not obtainable. See the note above BOOKS: requested by name on
+#                the paid plan, zero prices returned on the only two sports it
+#                is documented to cover.
+#   Betfair    — needs per-book commission first. See the note above BOOKS.
+#                Separately, it once quoted 1.02/1.02 on a thin live NRL market;
+#                evaluate() only rejects prices at or below 1.00, so a garbage
+#                high side could manufacture an arb that cannot be placed.
 
 # ---------------------------------------------------------------------------
 # Money
