@@ -178,6 +178,14 @@ def save_last(opps) -> None:
             "at": time.time(),
             "legs": [{"book": o.arb.legs[x].book, "outcome": x,
                       "odds": o.arb.legs[x].odds} for x in o.arb.outcomes],
+            # The whole board, not just the winning pairing. A price quoted back
+            # from a book we do not carry (bet365, read off the app) has to be
+            # tested against every book on the game, not only the two that
+            # happened to win — the improvement may come from pairing it with a
+            # book that placed third.
+            "board": {b: dict(prices)
+                      for b, prices in o.analysis.book_odds.items()},
+            "display": list(o.display_outcomes),
         })
     # Keep the newest few. Older alerts describe prices long since moved.
     seen_sigs, keep = set(), []

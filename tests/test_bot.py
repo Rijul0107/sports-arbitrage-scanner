@@ -6,6 +6,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 import config, bot
 from arbtool.core import allocate, evaluate
+from arbtool.pairs import analyse_game
 
 ITEM = {
     "sig": "e1", "home": "Penrith Panthers", "away": "Melbourne Storm",
@@ -78,6 +79,111 @@ class TestRestake(unittest.TestCase):
         self.assertIn("Could not rebuild", bot.restake(broken, 2000.0, config))
 
 
+BOARD_ITEM = {
+    "sig": "e1", "home": "Penrith Panthers", "away": "Sydney Roosters",
+    "sport": "NRL", "at": 0,
+    "display": ["Penrith Panthers", "Sydney Roosters"],
+    "board": {
+        "SportsBet": {"Penrith Panthers": 1.74, "Sydney Roosters": 2.10},
+        "TAB":       {"Penrith Panthers": 1.75, "Sydney Roosters": 2.05},
+        "Ladbrokes": {"Penrith Panthers": 1.82, "Sydney Roosters": 2.00},
+        "Unibet":    {"Penrith Panthers": 1.71, "Sydney Roosters": 2.10},
+    },
+    "legs": [{"book": "Ladbrokes", "outcome": "Penrith Panthers", "odds": 1.82},
+             {"book": "SportsBet", "outcome": "Sydney Roosters", "odds": 2.10}],
+}
+
+
+class TestParseQuote(unittest.TestCase):
+    def test_two_prices_are_home_then_away(self):
+        """Two bare numbers are read in the order the match is read, not the
+        alphabetical order the engine sorts outcomes into. Getting this
+        backwards would price the wrong side."""
+        book, prices = bot.parse_quote("bet365 1.72 2.15", BOARD_ITEM)
+        self.assertEqual(book, "bet365")
+        self.assertEqual(prices, {"Penrith Panthers": 1.72,
+                                  "Sydney Roosters": 2.15})
+
+    def test_named_side_resolves_from_a_partial_name(self):
+        book, prices = bot.parse_quote("bet365 Roosters 2.15", BOARD_ITEM)
+        self.assertEqual(prices, {"Sydney Roosters": 2.15})
+
+    def test_one_price_with_no_team_refuses_to_guess(self):
+        """A lone price could belong to either side, and picking the flattering
+        one would manufacture an arbitrage that does not exist."""
+        r = bot.parse_quote("bet365 2.30", BOARD_ITEM)
+        self.assertIsInstance(r, str)
+        self.assertIn("Which side", r)
+
+    def test_unrecognised_team_names_both_sides(self):
+        r = bot.parse_quote("bet365 xyz 2.15", BOARD_ITEM)
+        self.assertIsInstance(r, str)
+        self.assertIn("Penrith Panthers", r)
+
+    def test_implausible_prices_rejected(self):
+        for bad in ("bet365 210", "bet365 Roosters 0.5", "bet365 1.0 2.0"):
+            self.assertIsInstance(bot.parse_quote(bad, BOARD_ITEM), str, bad)
+
+    def test_a_bare_number_is_not_a_quote(self):
+        """Otherwise the quote parser would swallow every restake."""
+        for s in ("4000", "$4,000", "/last", "thanks"):
+            self.assertIsNone(bot.parse_quote(s, BOARD_ITEM), s)
+
+
+class TestQuote(unittest.TestCase):
+    def test_compares_against_the_whole_board_not_just_the_alerted_legs(self):
+        """The improvement can come from pairing the quoted price with a book
+        that placed third. Comparing only against the winning pair would miss
+        it, and would also overstate the gain."""
+        out = bot.quote(dict(BOARD_ITEM), "bet365",
+                        {"Sydney Roosters": 2.15}, config)
+        self.assertIn("best we have is 2.10", out)     # SportsBet/Unibet, not the leg
+        self.assertIn("Ladbrokes + bet365", out)
+
+    def test_better_but_not_crossing_says_so_and_prints_no_slip(self):
+        out = bot.quote(dict(BOARD_ITEM), "bet365",
+                        {"Sydney Roosters": 2.15}, config)
+        self.assertIn("not an arbitrage", out)
+        self.assertNotIn("PLACE FIRST", out)
+
+    def test_worse_price_is_called_not_better(self):
+        out = bot.quote(dict(BOARD_ITEM), "bet365",
+                        {"Sydney Roosters": 1.90}, config)
+        self.assertIn("not better", out)
+        self.assertNotIn("PLACE FIRST", out)
+
+    def test_crossing_quote_matches_the_engine_exactly(self):
+        """The slip must agree with core.py to the cent. This is the number
+        someone types into two betting apps."""
+        out = bot.quote(dict(BOARD_ITEM), "bet365",
+                        {"Sydney Roosters": 2.40}, config)
+        merged = dict(BOARD_ITEM["board"], **{"bet365": {"Sydney Roosters": 2.40}})
+        arb = analyse_game(merged, "h2h", sorted(merged),
+                           commission_pct=config.COMMISSION_PCT).best_pair.arb
+        allocate(arb, config.TOTAL_STAKE, increment=config.STAKE_INCREMENT)
+        self.assertIn(f"${arb.worst_profit:,.2f} guaranteed", out)
+        for o in arb.outcomes:
+            self.assertIn(f"stake ${arb.legs[o].stake:,.0f}", out)
+
+    def test_quoted_price_is_labelled_as_the_users_own_reading(self):
+        """It did not come from the feed, and the leg it pairs with is still as
+        old as the alert. Both facts have to survive into the message."""
+        out = bot.quote(dict(BOARD_ITEM), "bet365",
+                        {"Sydney Roosters": 2.40}, config)
+        self.assertIn("your reading, not our feed", out)
+        self.assertIn("unhedged", out)
+
+    def test_book_name_is_html_escaped(self):
+        out = bot.quote(dict(BOARD_ITEM), "<b>x", {"Sydney Roosters": 2.15}, config)
+        self.assertNotIn("<b>x", out)
+
+    def test_falls_back_to_the_alerted_pair_and_says_so(self):
+        """Alerts written before the board was stored only carry two books."""
+        old = {k: v for k, v in BOARD_ITEM.items() if k != "board"}
+        out = bot.quote(old, "bet365", {"Sydney Roosters": 2.15}, config)
+        self.assertIn("not the full board", out)
+
+
 class TestHandle(unittest.TestCase):
     def setUp(self):
         self.backup = bot.LAST_FILE.read_bytes() if bot.LAST_FILE.exists() else None
@@ -104,6 +210,26 @@ class TestHandle(unittest.TestCase):
     def test_no_alerts_yet_is_explained(self):
         bot.LAST_FILE.write_text("[]")
         self.assertIn("No alert", bot.handle("4000", config))
+
+    def test_quote_then_stake_restakes_the_improved_pairing(self):
+        """Sending a price and then a total must restake what was just shown.
+        Silently restaking the superseded pairing would quote a profit the user
+        was never offered."""
+        bot.LAST_FILE.write_text(json.dumps([dict(BOARD_ITEM)]))
+        bot.handle("bet365 Roosters 2.40", config)
+        out = bot.handle("4000", config)
+        self.assertIn("bet365", out)
+        self.assertIn("2.40", out)
+
+    def test_a_quote_that_does_not_cross_leaves_the_legs_alone(self):
+        bot.LAST_FILE.write_text(json.dumps([dict(BOARD_ITEM)]))
+        bot.handle("bet365 Roosters 2.15", config)
+        self.assertEqual(json.loads(bot.LAST_FILE.read_text())[0]["legs"],
+                         BOARD_ITEM["legs"])
+
+    def test_stake_replies_still_work_with_a_board_stored(self):
+        bot.LAST_FILE.write_text(json.dumps([dict(BOARD_ITEM)]))
+        self.assertIn("guaranteed", bot.handle("4000", config))
 
 
 if __name__ == "__main__":
