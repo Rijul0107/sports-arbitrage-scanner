@@ -53,20 +53,41 @@ MAX_STAKE = 100_000.0
 MIN_QUOTE = 1.01
 MAX_QUOTE = 100.0
 
+# The "/" menu in Telegram. Registered with setMyCommands so tapping the slash
+# button lists them instead of the user having to remember the wording.
+# Descriptions are capped by Telegram at 256 characters and must be plain text.
+COMMANDS = [
+    {"command": "last",  "description": "Show the most recent alert again"},
+    {"command": "stake", "description": "Restake it at a different total — /stake 4000"},
+    {"command": "quote", "description": "Check another book's price — /quote bet365 2.15 roosters"},
+    {"command": "help",  "description": "What I understand"},
+]
+
 HELP = (
-    "<b>Arb Desk</b>\n"
-    "Send a number to restake the most recent alert, e.g. <code>4000</code>.\n\n"
-    "<b>Quote a book we do not carry</b> — read the price off the app and send "
-    "it. Works for any bookmaker, Bet365 included:\n"
-    "<code>bet365 1.72 2.15</code>  (home price, then away)\n"
-    "<code>bet365 Roosters 2.15</code>  (one side only)\n"
-    "I check it against every book on that game and tell you whether it "
-    "improves the arbitrage.\n\n"
-    "<code>/last</code> — show the most recent alert again\n"
-    "<code>/help</code> — this message\n\n"
+    "<b>Arb Desk</b>\n\n"
+    "<b>/stake 4000</b> — restake the most recent alert at that total. A bare "
+    "number works too.\n\n"
+    "<b>/quote bet365 2.15 roosters</b> — a price you have read off another "
+    "bookmaker's app. I check it against every book on that game and say "
+    "whether it improves the arbitrage. Works for any bookmaker.\n"
+    "Say it however you like — all of these read the same:\n"
+    "<code>bet365 1.72 2.15</code>  (home price first)\n"
+    "<code>bet365 roosters 2.15</code>\n"
+    "<code>bet365 has 2.15 on the roosters</code>\n\n"
+    "<b>/last</b> — show the most recent alert again\n\n"
     "<i>No new odds are fetched. Replies recompute from the prices in the "
     "alert, so check both books before staking.</i>"
 )
+
+
+def register_commands(token: str) -> bool:
+    """Publish the slash menu. Idempotent, so it is safe on every start."""
+    try:
+        r = _call(token, "setMyCommands", {"commands": json.dumps(COMMANDS)})
+        return bool(r.get("ok"))
+    except RuntimeError as ex:
+        print(f"  could not register the /commands menu: {ex}")
+        return False
 
 
 def parse_amount(text: str):
@@ -112,68 +133,126 @@ def _outcomes(item: dict) -> list:
     return ordered if len(ordered) == len(names) else sorted(names)
 
 
+# Words that carry no meaning in a quote. Stripped so "bet365 has 2.15 on the
+# roosters" names the book "bet365" and not "bet365 has on the" — a wrong
+# bookmaker name printed on a betting slip is a wrong instruction.
+FILLER = {"has", "have", "had", "is", "are", "was", "on", "at", "the", "for",
+          "and", "of", "to", "in", "it", "its", "showing", "shows", "paying",
+          "pays", "price", "prices", "odds", "says", "say", "got", "now",
+          "currently", "still", "a", "an", "with", "quote", "quoting"}
+
+
 def _match_outcome(token: str, outcomes: list):
     """Resolve 'Roosters' to 'Sydney Roosters'. Ambiguity returns None rather
-    than guessing — staking the wrong side is not a recoverable error."""
+    than guessing — staking the wrong side is not a recoverable error.
+
+    Matching is word-aware, never a bare substring of the whole name: "the" is
+    inside "Panthers", so a substring test silently tied prices to the wrong
+    team. Filler words are refused outright for the same reason."""
     t = token.strip().lower()
-    if not t:
-        return None
+    if len(t) < 3 or t in FILLER:
+        return None                      # too short or too common to be a team
     hits = [o for o in outcomes if t == o.lower()]
     if not hits:
-        hits = [o for o in outcomes if t in o.lower()]
-    if not hits:
-        hits = [o for o in outcomes if any(w.startswith(t) for w in o.lower().split())]
+        hits = [o for o in outcomes
+                if any(w == t or w.startswith(t) or t.startswith(w)
+                       for w in o.lower().split() if len(w) >= 3)]
     return hits[0] if len(hits) == 1 else None
 
 
 def parse_quote(text: str, item: dict):
     """A price read off a bookmaker's app, for a book we do not carry.
 
-        bet365 1.72 2.15          both sides, home price first
-        bet365 Roosters 2.15      one side, named
+        bet365 1.72 2.15                 both sides, home price first
+        bet365 Roosters 2.15             one side, named
+        bet365 has 2.15 on the roosters  same thing, said naturally
+        bet365 panthers 1.72 roosters 2.15
 
-    Returns (book, {outcome: odds}), or a string to send back explaining why it
-    could not be read, or None if this is not a quote at all."""
-    parts = text.split()
-    if len(parts) < 2:
+    Order does not matter and filler words are ignored, but the reading is
+    strictly positional where sides are named: the nth price belongs to the nth
+    team mentioned. Nothing is inferred beyond that. If which side a price
+    belongs to cannot be established, the reply asks rather than picks — the
+    flattering guess would manufacture an arbitrage that does not exist.
+
+    Returns (book, {outcome: odds}), a string explaining why it could not be
+    read, or None if this is not a quote at all."""
+    outs = _outcomes(item)
+    raw = [t.strip("@$()").rstrip(".,:;") for t in text.replace(",", "").split()]
+    raw = [t for t in raw if t]
+    if len(raw) < 2:
         return None
-    nums, words = [], []
-    for p in parts:
+
+    # Classify first, decide second. A number outside plausible odds is only a
+    # typo worth complaining about when no real price is present; otherwise it
+    # is part of a name, which is how "bet 365 roosters 2.15" reads correctly.
+    kinds = []
+    for t in raw:
         try:
-            nums.append(float(p.replace(",", "").lstrip("@$")))
+            v = float(t)
         except ValueError:
-            words.append(p)
-    if not nums or not words:
-        return None
+            kinds.append(("word", t))
+            continue
+        kinds.append(("price" if MIN_QUOTE <= v <= MAX_QUOTE else "offscale", v))
 
-    book = " ".join(words[:-1]) if len(nums) == 1 and len(words) > 1 else " ".join(words)
-    name_token = words[-1] if len(nums) == 1 and len(words) > 1 else None
-    book = book.strip()
-    if not book:
-        return None
-
-    for v in nums:
-        if not (MIN_QUOTE <= v <= MAX_QUOTE):
-            return (f"<b>{v:g}</b> is not a usable decimal price. "
+    prices = [v for k, v in kinds if k == "price"]
+    offscale = [v for k, v in kinds if k == "offscale"]
+    if not prices:
+        if offscale and any(k == "word" for k, _ in kinds):
+            return (f"<b>{offscale[0]:g}</b> is not a usable decimal price. "
                     f"Send the decimal odds as the app shows them, "
                     f"e.g. <code>bet365 1.72 2.15</code>.")
+        return None
+    if len(prices) > 2:
+        return ("Too many prices. Send two (home first), or one with the team "
+                "named.")
 
-    outs = _outcomes(item)
-    if len(nums) >= 2:
-        if len(nums) > 2:
-            return ("Too many numbers. Send two prices (home first) or one "
-                    "price with the team name.")
-        return book, {outs[0]: nums[0], outs[1]: nums[1]}
+    # Walk in order so a price can be tied to the team beside it.
+    named, book_bits, seq = [], [], []
+    for kind, val in kinds:
+        if kind == "price":
+            seq.append(("price", val))
+            continue
+        if kind == "offscale":
+            # A stray number inside a name: "bet 365". Glue it to what precedes.
+            if book_bits:
+                book_bits[-1] += f"{val:g}"
+            else:
+                book_bits.append(f"{val:g}")
+            continue
+        o = _match_outcome(val, outs)
+        if o is not None:
+            # A second word of a name already matched ("Sydney" then "Roosters")
+            # is part of that team, not part of the bookmaker's name.
+            if o not in named:
+                named.append(o)
+                seq.append(("team", o))
+        elif val.lower() not in FILLER:
+            book_bits.append(val)
 
-    if name_token is None:
-        return ("Which side is that price for? Send both — "
-                f"<code>{e(book)} 1.72 2.15</code> — or name the team, "
-                f"<code>{e(book)} {e(outs[1].split()[-1])} {nums[0]:g}</code>.")
-    o = _match_outcome(name_token, outs)
-    if o is None:
-        return (f"I could not tell which side <b>{e(name_token)}</b> is. "
-                f"Use <b>{e(outs[0])}</b> or <b>{e(outs[1])}</b>.")
-    return book, {o: nums[0]}
+    book = " ".join(book_bits).strip()
+    if not book:
+        return ("Which bookmaker is that? Send the name with the price, "
+                "e.g. <code>bet365 1.72 2.15</code>.")
+
+    if named and len(named) == len(prices):
+        # Positional: nth price belongs to nth team named, whichever came first.
+        order = [v for k, v in seq if k == "team"]
+        vals = [v for k, v in seq if k == "price"]
+        return book, dict(zip(order, vals))
+    if not named and len(prices) == 2:
+        return book, {outs[0]: prices[0], outs[1]: prices[1]}
+    if len(prices) == 1 and len(named) == 1:
+        return book, {named[0]: prices[0]}
+    if len(prices) == 1:
+        # Name both sides. The user may have typed a team name I failed to
+        # recognise, and seeing the exact names is what fixes that.
+        return (f"Which side is <b>{prices[0]:g}</b> for — "
+                f"<b>{e(outs[0])}</b> or <b>{e(outs[1])}</b>?\n"
+                f"<code>{e(book)} {e(outs[1].split()[-1])} {prices[0]:g}</code>, "
+                f"or send both prices with {e(outs[0])} first.")
+    return (f"I matched {len(named)} team(s) to {len(prices)} prices. "
+            f"Send <code>{e(book)} 1.72 2.15</code> with "
+            f"{e(outs[0])} first.")
 
 
 def quote(item: dict, book: str, prices: dict, cfg) -> str:
@@ -356,15 +435,29 @@ def handle(text: str, cfg) -> str | None:
     t = (text or "").strip()
     if not t:
         return None
-    low = t.lower()
-    if low in ("/start", "/help", "help"):
+    # Telegram appends @botname when a command is tapped in a group.
+    cmd, _, rest = t.partition(" ")
+    cmd = cmd.lower().split("@")[0]
+    if cmd.startswith("/"):
+        t, low = rest.strip(), rest.strip().lower()
+    else:
+        cmd, low = "", t.lower()
+
+    if cmd in ("/start", "/help") or low == "help":
         return HELP
 
     items = _read_json(LAST_FILE, [])
-    if low in ("/last", "last"):
+    if cmd == "/last" or low == "last":
         if not items:
             return "No alerts yet. You will get one when a market crosses."
         return restake(items[0], cfg.TOTAL_STAKE, cfg)
+
+    # Tapping /quote or /stake with nothing after it should explain itself
+    # rather than sit silent — the menu entry is the whole point of the prompt.
+    if cmd in ("/quote", "/stake") and not t:
+        return HELP
+    if cmd == "/quote" and not items:
+        return "No alert to compare against yet. You will get one when a market crosses."
 
     # A quote carries a book name as well as a number, so it can never be
     # mistaken for a bare stake — but check it first regardless, because
@@ -381,7 +474,10 @@ def handle(text: str, cfg) -> str | None:
 
     amount = parse_amount(t)
     if amount is None:
-        return None                      # not a stake; ignore rather than nag
+        # Silence for stray chatter, but never for an explicit command — the
+        # user tapped it and is owed an answer.
+        return (f"I could not read <b>{e(t)}</b> as a stake. Send a number, "
+                f"e.g. <code>/stake 4000</code>.") if cmd == "/stake" else None
     if not items:
         return "No alert to restake yet. You will get one when a market crosses."
     return restake(items[0], amount, cfg)
@@ -409,6 +505,7 @@ def _remember_quote(items: list, book: str, prices: dict, cfg) -> None:
 def poll(token: str, cfg, once: bool = False) -> int:
     offset = _read_json(OFFSET_FILE, {}).get("offset", 0)
     allowed = set(str(c) for c in cfg.TELEGRAM_CHAT_IDS)
+    register_commands(token)
     print(f"Listening. {len(allowed)} recipient(s). Ctrl-C to stop.")
     while True:
         try:
@@ -453,11 +550,17 @@ def main() -> int:
                                 formatter_class=argparse.RawDescriptionHelpFormatter)
     p.add_argument("--once", action="store_true",
                    help="drain pending messages and exit (for testing)")
+    p.add_argument("--commands", action="store_true",
+                   help="publish the / menu to Telegram and exit")
     args = p.parse_args()
 
     if not config.TELEGRAM_BOT_TOKEN:
         print("No bot token. Put TELEGRAM_BOT_TOKEN in .env beside config.py.")
         return 2
+    if args.commands:
+        ok = register_commands(config.TELEGRAM_BOT_TOKEN)
+        print("Menu published." if ok else "Could not publish the menu.")
+        return 0 if ok else 1
     if not config.TELEGRAM_CHAT_IDS:
         print("No recipients configured. Run: python3 alert.py --chats")
         return 2

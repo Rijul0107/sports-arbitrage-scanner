@@ -108,6 +108,34 @@ class TestParseQuote(unittest.TestCase):
         book, prices = bot.parse_quote("bet365 Roosters 2.15", BOARD_ITEM)
         self.assertEqual(prices, {"Sydney Roosters": 2.15})
 
+    def test_filler_words_never_match_a_team(self):
+        """"the" is inside "Pan-the-rs". A substring match tied prices to the
+        wrong side, which is the worst failure this parser can have."""
+        book, prices = bot.parse_quote("bet365 has 2.15 on the roosters",
+                                       BOARD_ITEM)
+        self.assertEqual(book, "bet365")
+        self.assertEqual(prices, {"Sydney Roosters": 2.15})
+
+    def test_phrasing_and_order_do_not_matter(self):
+        want = {"Sydney Roosters": 2.15}
+        for s in ("bet365 roosters 2.15", "bet365 2.15 roosters",
+                  "roosters are 2.15 on bet365", "BET365 @2.15 Roosters",
+                  "bet365 Sydney Roosters 2.15", "bet 365 roosters 2.15"):
+            book, prices = bot.parse_quote(s, BOARD_ITEM)
+            self.assertEqual(prices, want, s)
+            self.assertEqual(book.lower().replace(" ", ""), "bet365", s)
+
+    def test_two_named_sides_pair_positionally(self):
+        book, prices = bot.parse_quote("bet365 panthers 1.72 roosters 2.15",
+                                       BOARD_ITEM)
+        self.assertEqual(prices, {"Penrith Panthers": 1.72,
+                                  "Sydney Roosters": 2.15})
+
+    def test_a_price_with_no_bookmaker_asks_for_one(self):
+        r = bot.parse_quote("2.15 roosters", BOARD_ITEM)
+        self.assertIsInstance(r, str)
+        self.assertIn("bookmaker", r)
+
     def test_one_price_with_no_team_refuses_to_guess(self):
         """A lone price could belong to either side, and picking the flattering
         one would manufacture an arbitrage that does not exist."""
@@ -210,6 +238,41 @@ class TestHandle(unittest.TestCase):
     def test_no_alerts_yet_is_explained(self):
         bot.LAST_FILE.write_text("[]")
         self.assertIn("No alert", bot.handle("4000", config))
+
+    def test_slash_commands(self):
+        bot.LAST_FILE.write_text(json.dumps([dict(BOARD_ITEM)]))
+        self.assertIn("guaranteed", bot.handle("/stake 4000", config))
+        self.assertIn("Sydney Roosters", bot.handle("/quote bet365 2.15 roosters",
+                                                    config))
+        self.assertIn("Arb Desk", bot.handle("/help", config))
+
+    def test_command_suffixed_with_the_bot_name(self):
+        """Telegram appends @botname when a command is tapped in a group."""
+        bot.LAST_FILE.write_text(json.dumps([dict(BOARD_ITEM)]))
+        self.assertIn("Sydney Roosters",
+                      bot.handle("/quote@arbbot bet365 2.15 roosters", config))
+
+    def test_a_bare_command_explains_itself(self):
+        """Tapping the menu entry sends the command with no arguments. Silence
+        there would look broken."""
+        bot.LAST_FILE.write_text(json.dumps([dict(BOARD_ITEM)]))
+        for c in ("/quote", "/stake"):
+            self.assertIn("Arb Desk", bot.handle(c, config), c)
+
+    def test_an_unreadable_command_argument_still_answers(self):
+        """Stray chatter is ignored on purpose, but an explicit command was
+        deliberate and is owed a reply."""
+        bot.LAST_FILE.write_text(json.dumps([dict(BOARD_ITEM)]))
+        self.assertIn("could not read", bot.handle("/stake abc", config))
+        self.assertIsNone(bot.handle("abc", config))
+
+    def test_menu_entries_are_valid_for_telegram(self):
+        """setMyCommands rejects uppercase or overlong entries, and a rejected
+        menu fails silently — the button would simply never appear."""
+        for c in bot.COMMANDS:
+            self.assertRegex(c["command"], r"^[a-z0-9_]{1,32}$")
+            self.assertLessEqual(len(c["description"]), 256)
+            self.assertNotIn("<", c["description"])
 
     def test_quote_then_stake_restakes_the_improved_pairing(self):
         """Sending a price and then a total must restake what was just shown.
