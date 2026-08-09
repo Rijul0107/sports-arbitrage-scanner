@@ -115,8 +115,12 @@ def restake(item: dict, total: float, cfg) -> str:
         lines.append(f"    <b>stake {whole(leg.stake)}</b> → returns {money(leg.returns)}")
     lines += [
         "",
-        f"Outlay {whole(arb.total_stake)} · "
-        f"returns {money(arb.worst_return)}–{money(arb.best_return)}",
+        # Same shape as alert.py's summary line. The two must stay in step, or a
+        # restaked reply reads differently from the alert it answers.
+        f"Returns {money(arb.worst_return)}–{money(arb.best_return)}, "
+        f"money put in {whole(arb.total_stake)}, "
+        f"<b>guaranteed {money(arb.worst_profit)} @ "
+        f"{arb.realised_margin * 100:.2f}%</b>",
         f"<i>If leg 2 misses you are unhedged on {money(arb.legs[first].stake)}.</i>",
         "",
         "<b>CHECK BEFORE STAKING</b> — these are the alert's prices, not fresh ones:",

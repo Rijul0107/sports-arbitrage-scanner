@@ -311,8 +311,15 @@ def format_hit(opp, cfg) -> str:
         lines.append(f"    back {e(o)} @ {leg.odds:.2f}")
         lines.append(f"    <b>stake {whole(leg.stake)}</b> → returns {money(leg.returns)}")
     lines.append("")
-    lines.append(f"Outlay {whole(arb.total_stake)} · "
-                 f"returns {money(arb.worst_return)}–{money(arb.best_return)}")
+    # Return range first, then what went in, then what is locked in. Ordered the
+    # way the money is reasoned about rather than the way it is calculated.
+    # realised_margin, not Arb.margin: after whole-dollar rounding the legs stop
+    # paying identically, so the theoretical margin is no longer achievable and
+    # quoting it here would overstate every alert.
+    lines.append(f"Returns {money(arb.worst_return)}–{money(arb.best_return)}, "
+                 f"money put in {whole(arb.total_stake)}, "
+                 f"<b>guaranteed {money(arb.worst_profit)} @ "
+                 f"{arb.realised_margin * 100:.2f}%</b>")
     # The exposure is one leg, not the outlay. Every surface says so; so does this.
     lines.append(f"<i>If leg 2 misses you are unhedged on "
                  f"{money(arb.legs[first].stake)} — that, not the outlay, is the risk.</i>")

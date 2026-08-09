@@ -121,6 +121,26 @@ class TestMessage(unittest.TestCase):
         self.assertIn("PLACE FIRST", msg)
         self.assertIn("unhedged", msg)          # the one-leg risk must stay stated
 
+    def test_summary_line_shape_and_figures(self):
+        """The summary line reads returns, then money in, then what is locked in.
+
+        Asserts realised_margin rather than Arb.margin. Whole-dollar rounding
+        means the legs stop paying identically, so the theoretical margin is no
+        longer achievable — quoting it here would overstate every alert, and the
+        two differ by enough to matter on a thin edge."""
+        hits = playable()
+        msg = alert.build_messages(hits, config)[0]
+        arb = hits[0].arb
+        self.assertIn(
+            f"Returns ${arb.worst_return:,.2f}–${arb.best_return:,.2f}, "
+            f"money put in ${arb.total_stake:,.0f}, ", msg)
+        self.assertIn(f"guaranteed ${arb.worst_profit:,.2f} @ "
+                      f"{arb.realised_margin * 100:.2f}%", msg)
+        # The figure that is not guaranteed must not appear as if it were.
+        if abs(arb.margin - arb.realised_margin) > 1e-9:
+            self.assertNotIn(f"guaranteed ${arb.worst_profit:,.2f} @ "
+                             f"{arb.margin * 100:.2f}%", msg)
+
     def test_one_message_per_game(self):
         """Two bet slips in one Telegram bubble means scrolling past one to
         read the other, on a phone, while both prices move."""
