@@ -19,12 +19,14 @@ feature completeness.
 
 Scope, deliberately narrow:
 
-- **Sports**: NRL and tennis. Both are two-outcome — no draw leg to cover, so
-  an arbitrage needs only two opposing prices. This is the clean case.
+- **Sports**: two-outcome markets only — tennis, NRL, AFL, NBA/WNBA/NBL, MLB,
+  NFL and MMA. No draw leg to cover, so an arbitrage needs only two opposing
+  prices. Configured as `SPORT_KEYS` plus `SPORT_PREFIXES` in `config.py`.
 - **Market**: head-to-head only.
 - **Region**: Australian bookmakers.
 - **Timing**: pre-match only, for legal reasons (see §5).
-- **Books**: four, configured in `config.py`.
+- **Books**: twelve, configured in `config.py`. Betfair is an exchange and
+  carries commission; see §4.
 
 ### What this is NOT
 
@@ -114,11 +116,28 @@ profit              = T × (1/S − 1)
 identity plus the corrections that make it survive contact with a real
 bookmaker.
 
-### Correction 1 — commission
+### Correction 1 — commission, per book
 
 Charged on winnings, not on the returned stake. Effective odds become
-`1 + (odds − 1) × (1 − c)`. Betfair Exchange charges it; traditional books do
-not. Default 0.
+`1 + (odds − 1) × (1 − c)`. Betfair charges it; the corporates do not.
+
+`c` is **per bookmaker**, not per market — `config.BOOK_COMMISSION_PCT` maps
+book to rate and `COMMISSION_PCT` is the floor for books with no entry.
+`evaluate()` accepts either a number or that mapping. A single global rate is
+wrong whichever value it takes: zero overstates a Betfair leg and turns a
+settled loss into an apparent arbitrage, while Betfair's rate applied to
+everything penalises corporate legs by a fee they never charge.
+
+Two consequences that are easy to miss:
+
+- **Commission decides which book wins an outcome**, not only what it pays.
+  Betfair at 2.20 less 5% pays 2.14, so a corporate at 2.16 is the better leg
+  despite the shorter headline. `best_odds_per_outcome()` ranks on the net
+  figure and returns the raw one, because the raw price is what the betting
+  slip shows and what the user must confirm in the app.
+- **`Leg.returns` is net.** `Leg.gross_returns` is the slip figure. Every
+  guaranteed number is built from the net one; building them from gross would
+  overstate `worst_profit` by exactly the commission.
 
 ### Correction 2 — stake rounding (the one that matters)
 

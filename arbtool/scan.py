@@ -86,6 +86,18 @@ def quote_ages(event: dict, books: Sequence[str],
     return out
 
 
+def commission_map(cfg) -> dict:
+    """{book: commission pct} for every configured book.
+
+    Built here rather than read straight from config so the flat
+    COMMISSION_PCT still works as a floor for books with no explicit rate, and
+    so every caller — scan, watch, the bot — gets the same mapping instead of
+    each deciding how to merge the two settings."""
+    flat = float(getattr(cfg, "COMMISSION_PCT", 0.0) or 0.0)
+    per_book = dict(getattr(cfg, "BOOK_COMMISSION_PCT", None) or {})
+    return {b: float(per_book.get(b, flat)) for b in getattr(cfg, "BOOKS", ())}
+
+
 def assess_event(event: dict, sport_key: str, sport_title: str, cfg) -> Optional[Opportunity]:
     """Evaluate one event against the configured books and safety rules."""
     if cfg.PRE_MATCH_ONLY and is_in_play(event):
@@ -103,7 +115,8 @@ def assess_event(event: dict, sport_key: str, sport_title: str, cfg) -> Optional
     if len(book_odds) < 2:
         return None                                   # need two of your books
 
-    ga = analyse_game(book_odds, "h2h", cfg.BOOKS, commission_pct=cfg.COMMISSION_PCT)
+    ga = analyse_game(book_odds, "h2h", cfg.BOOKS,
+                      commission_pct=commission_map(cfg))
     if ga is None:
         return None
 

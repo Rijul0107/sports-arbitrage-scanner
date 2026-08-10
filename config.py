@@ -68,7 +68,7 @@ REGIONS = "au"
 # a slot. Betfair is an exchange: its prices come from users laying against each
 # other rather than a trading desk, so it disagrees with the corporates
 # structurally, and The Odds API refreshes exchanges every 20s against 60s for
-# the rest. If you add Betfair, set COMMISSION_PCT below.
+# the rest. Its commission is set per book in BOOK_COMMISSION_PCT below.
 #
 # Every title below was read out of a real /odds response on 2026-08-09, not
 # guessed. Two of them are why that matters: the API returns "SportsBet" with a
@@ -91,31 +91,26 @@ BOOKS = [
     "TABtouch",     # 15.3%
     "Bet Right",    # 12.9%
     "Dabble AU",    #  7.1% — tennis mostly
+    # Added 2026-08-10, once commission became per-book. 21.1% coverage and
+    # structurally the most independent price here: an exchange, priced by
+    # punters laying against each other rather than by a trading desk, so it
+    # disagrees with the corporates in a way Ladbrokes and Neds never will.
+    # Its commission is in BOOK_COMMISSION_PCT below and is load-bearing —
+    # without it this book would overstate every position it appears in.
+    "Betfair",      # 21.1%
 ]
 
-# Betfair is deliberately NOT in that list despite 21.3% coverage and being the
-# most structurally independent price source available (users laying against
-# each other, not a trading desk). COMMISSION_PCT below is a single global
-# number applied to every leg, and Betfair is the only book here that charges
-# commission. Both ways of using it are wrong and both lose money:
-#   - leave it 0, and a Betfair leg's winnings are overstated by the commission,
-#     which turns a genuine-looking 3% arb into a loss after settlement;
-#   - set it to Betfair's rate, and every corporate leg is penalised by a fee
-#     it never charges, hiding almost every real arbitrage.
-# Adding Betfair safely means per-book commission through core.py, pairs.py and
-# the mirrored JavaScript in static/dashboard.html (CLAUDE.md §7). Until that
-# exists, the honest configuration is to leave it out.
-#
 # Bet365 is absent because it is not obtainable, not because it was not wanted.
 # The Odds API documents `bet365_au` as paid-plans-only, h2h/spreads/totals,
 # AFL and NRL. Requested by name on 2026-08-09 with the paid key: 8 NRL games
 # and 7 AFL games returned, zero Bet365 prices on any of them.
 
-# Eleven books gives fifty-five pairings. Count is not the same as independence:
+# Twelve books gives sixty-six pairings. Count is not the same as independence:
 # Ladbrokes and Neds are one Entain trading desk and returned identical prices
 # and identical coverage on a 23-game board, with Neds in zero best pairings.
-# TAB and TABtouch are similarly related. Treat this as roughly nine independent
-# price sources, not eleven.
+# TAB and TABtouch are similarly related. Treat this as roughly ten independent
+# price sources, not twelve — though Betfair, being an exchange, is the most
+# independent of them.
 #
 # An earlier version of this file dropped Betr, Unibet, TABtouch and Bet Right
 # on the grounds that they "quote only once a game is under way". That was
@@ -132,10 +127,14 @@ BOOKS = [
 #   Bet365 AU  — not obtainable. See the note above BOOKS: requested by name on
 #                the paid plan, zero prices returned on the only two sports it
 #                is documented to cover.
-#   Betfair    — needs per-book commission first. See the note above BOOKS.
-#                Separately, it once quoted 1.02/1.02 on a thin live NRL market;
-#                evaluate() only rejects prices at or below 1.00, so a garbage
-#                high side could manufacture an arb that cannot be placed.
+#
+# Betfair was in this list until 2026-08-10 and is now included, because
+# commission is per book rather than one global rate. One caution survives the
+# change: it once quoted 1.02/1.02 on a thin live NRL market, and evaluate()
+# only rejects prices at or below 1.00, so a garbage high side on an illiquid
+# exchange market could still manufacture an arb that cannot be placed. Treat
+# any Betfair-led edge above roughly 5% as a thin market rather than a payday,
+# and check the available liquidity in the app before staking.
 
 # ---------------------------------------------------------------------------
 # Money
@@ -155,7 +154,30 @@ MIN_PROFIT = 10.00
 # Ignore anything thinner than this regardless of stake size.
 MIN_MARGIN_PCT = 0.5
 
-# Per-leg commission on winnings. Betfair charges it; traditional books do not.
+# Commission charged on winnings, per bookmaker. Books absent here charge
+# nothing, which is every traditional Australian corporate.
+#
+# This is a mapping rather than one number because a single global rate is
+# wrong whichever value it takes. Zero overstates a Betfair leg's winnings and
+# turns a settled loss into an apparent arbitrage; Betfair's rate applied to
+# everything penalises corporate legs by a fee they never charge and hides
+# almost every real edge.
+#
+# The rate also decides which book wins an outcome, not just what it pays:
+# Betfair at 2.20 less commission pays 2.14, so a corporate at 2.16 is the
+# better leg despite the shorter headline price. core.best_odds_per_outcome
+# ranks on the net figure for exactly this reason.
+#
+# CONFIRM YOUR OWN RATE before staking on a Betfair leg. Commission is charged
+# on net market profit and the rate varies by market and by account — discount
+# rates and market base rates both move it. 5% is Betfair Australia's standard
+# starting point, not a promise about your account.
+BOOK_COMMISSION_PCT = {
+    "Betfair": 5.0,
+}
+
+# Applied to every book that has no entry above. Left at zero deliberately:
+# a blanket rate is the mistake BOOK_COMMISSION_PCT exists to avoid.
 COMMISSION_PCT = 0.0
 
 # ---------------------------------------------------------------------------

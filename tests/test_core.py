@@ -100,6 +100,75 @@ class TestEvaluate(unittest.TestCase):
         self.assertFalse(evaluate(odds, commission_pct=5).is_arb)
 
 
+class TestPerBookCommission(unittest.TestCase):
+    """Betfair charges commission on winnings; the corporates do not. One
+    global rate is wrong whichever value it takes, so the rate is per book —
+    and it has to change which book wins an outcome, not only what it pays."""
+
+    MARKET = {"Betfair":   {"A": 2.20, "B": 1.90},
+              "SportsBet": {"A": 2.16, "B": 1.95}}
+    COMM = {"Betfair": 5.0}
+
+    def test_commission_decides_which_book_wins_the_outcome(self):
+        """2.20 less 5% pays 2.14, so 2.16 with no commission is the better
+        leg. Ranking on the headline price would send money to Betfair and
+        report a profit that never arrives."""
+        free = evaluate(self.MARKET, expect_outcomes=2)
+        self.assertEqual(free.legs["A"].book, "Betfair")
+        charged = evaluate(self.MARKET, commission_pct=self.COMM, expect_outcomes=2)
+        self.assertEqual(charged.legs["A"].book, "SportsBet")
+
+    def test_only_the_charging_book_is_penalised(self):
+        m = {"Betfair": {"A": 3.00}, "SportsBet": {"B": 3.00}}
+        arb = evaluate(m, commission_pct=self.COMM, expect_outcomes=2)
+        self.assertAlmostEqual(arb.legs["A"].effective_odds, 1 + 2.0 * 0.95)
+        self.assertAlmostEqual(arb.legs["B"].effective_odds, 3.00)
+
+    def test_returns_are_net_not_the_slip_figure(self):
+        """The bookmaker's slip shows gross. Every guaranteed number in this
+        module must be built from what actually lands in the account, or
+        worst_profit is overstated by exactly the commission."""
+        m = {"Betfair": {"A": 3.00}, "SportsBet": {"B": 3.00}}
+        arb = evaluate(m, commission_pct=self.COMM, expect_outcomes=2)
+        allocate(arb, 1000.0, increment=1.0)
+        leg = arb.legs["A"]
+        self.assertAlmostEqual(leg.gross_returns, leg.stake * 3.00)
+        self.assertAlmostEqual(leg.returns, leg.stake * (1 + 2.0 * 0.95))
+        self.assertLess(leg.returns, leg.gross_returns)
+
+    def test_commission_can_turn_an_arb_into_a_loss(self):
+        """The failure this change exists to prevent: an edge that looks real
+        at zero commission and settles negative once Betfair takes its cut."""
+        m = {"Betfair": {"A": 2.02}, "SportsBet": {"B": 2.02}}
+        self.assertTrue(evaluate(m, expect_outcomes=2).is_arb)
+        charged = evaluate(m, commission_pct={"Betfair": 5.0}, expect_outcomes=2)
+        self.assertFalse(charged.is_arb)
+        allocate(charged, 2000.0, increment=1.0)
+        self.assertLess(charged.worst_profit, 0)
+
+    def test_a_flat_number_still_applies_to_every_book(self):
+        """Back-compatible: the old single-rate call must behave as before."""
+        flat = evaluate(self.MARKET, commission_pct=5.0, expect_outcomes=2)
+        for leg in flat.legs.values():
+            self.assertAlmostEqual(leg.commission_pct, 5.0)
+
+    def test_books_absent_from_the_mapping_charge_nothing(self):
+        arb = evaluate(self.MARKET, commission_pct={"Betfair": 5.0},
+                       expect_outcomes=2)
+        self.assertAlmostEqual(arb.legs["B"].commission_pct, 0.0)
+
+    def test_stakes_are_split_on_net_odds(self):
+        """A leg staked on its gross price is staked wrong: the hedge would not
+        pay equally, and the shortfall lands on the commission-charging side."""
+        m = {"Betfair": {"A": 2.60}, "SportsBet": {"B": 2.60}}
+        arb = evaluate(m, commission_pct=self.COMM, expect_outcomes=2)
+        allocate(arb, 5000.0, increment=1.0)
+        # Net returns must be close to equal; gross must not be.
+        self.assertLess(abs(arb.legs["A"].returns - arb.legs["B"].returns), 3.0)
+        self.assertGreater(
+            abs(arb.legs["A"].gross_returns - arb.legs["B"].gross_returns), 3.0)
+
+
 class TestAllocate(unittest.TestCase):
     def setUp(self):
         self.arb = evaluate({

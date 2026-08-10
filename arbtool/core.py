@@ -44,10 +44,33 @@ class Leg:
     book: str
     odds: float
     stake: float = 0.0
+    # Commission this book charges on winnings. Per leg, not per market:
+    # Betfair charges it and the corporates do not, so one number for the whole
+    # position is wrong in both directions.
+    commission_pct: float = 0.0
+
+    @property
+    def effective_odds(self) -> float:
+        """The price after this book's commission on winnings.
+
+        Commission is levied on the profit, not on the stake returned, so
+        2.20 at 5% pays 1 + 1.20*0.95 = 2.14."""
+        return 1.0 + (self.odds - 1.0) * (1.0 - self.commission_pct / 100.0)
+
+    @property
+    def gross_returns(self) -> float:
+        """What the bookmaker's slip will say, before commission is taken."""
+        return self.stake * self.odds
 
     @property
     def returns(self) -> float:
-        return self.stake * self.odds
+        """What actually lands in the account.
+
+        Net, not gross. Every guaranteed figure in this module is built from
+        this, so a commission-charging leg must not report the slip's number —
+        that would overstate worst_profit by the commission and turn a losing
+        position into an apparent arbitrage."""
+        return self.stake * self.effective_odds
 
 
 @dataclass
@@ -107,12 +130,34 @@ class Arb:
 # Core evaluation
 # ---------------------------------------------------------------------------
 
-def best_odds_per_outcome(book_odds: BookOdds) -> Dict[str, Tuple[float, str]]:
-    """{outcome: (best_odds, bookmaker)}.
+def commission_for(commission, book: str) -> float:
+    """This book's commission percentage.
+
+    Accepts a plain number, applied to every book, or a {book: pct} mapping
+    with books absent from it charging nothing. The mapping is the honest
+    shape: Betfair charges commission and the corporates do not, so a single
+    global rate is wrong whichever value it takes — zero overstates a Betfair
+    leg's winnings, and Betfair's rate penalises every corporate leg."""
+    if isinstance(commission, dict):
+        return float(commission.get(book, 0.0) or 0.0)
+    return float(commission or 0.0)
+
+
+def best_odds_per_outcome(book_odds: BookOdds,
+                          commission=0.0) -> Dict[str, Tuple[float, str]]:
+    """{outcome: (best_odds, bookmaker)}, where "best" is after commission.
+
+    Ranking on the raw price would be wrong wherever commission differs
+    between books: Betfair at 2.20 less 5% pays 2.14, so a corporate at 2.16
+    is the better leg despite the shorter headline. The odds returned are the
+    raw ones — that is what the betting slip will show and what the user must
+    confirm in the app — but the choice between books is made on what actually
+    lands in the account.
 
     Prices at or below 1.00 are treated as suspended/malformed and ignored:
     a decimal price of 1.00 returns the stake, which is not a real market."""
     best: Dict[str, Tuple[float, str]] = {}
+    ranked: Dict[str, float] = {}
     for book, outcomes in book_odds.items():
         for outcome, odds in outcomes.items():
             if odds is None:
@@ -123,8 +168,10 @@ def best_odds_per_outcome(book_odds: BookOdds) -> Dict[str, Tuple[float, str]]:
                 continue
             if not (o > 1.0) or o != o:      # also rejects NaN
                 continue
-            if outcome not in best or o > best[outcome][0]:
+            net = 1.0 + (o - 1.0) * (1.0 - commission_for(commission, book) / 100.0)
+            if outcome not in best or net > ranked[outcome]:
                 best[outcome] = (o, book)
+                ranked[outcome] = net
     return best
 
 
@@ -135,8 +182,11 @@ def evaluate(
 ) -> Optional[Arb]:
     """Evaluate one market. Returns None when the market cannot be assessed.
 
-    commission_pct: per-leg commission or friction, applied to winnings only
-        (the exchange convention). 5.0 means 5%.
+    commission_pct: commission applied to winnings only (the exchange
+        convention). Either a number applied to every book, or a
+        {book: pct} mapping — books absent from the mapping charge nothing.
+        5.0 means 5%. The mapping is what real markets look like: Betfair
+        charges commission, the corporates do not.
     expect_outcomes: require exactly this many outcomes. Pass 2 for win/loss
         sports so that a bookmaker erroneously listing a draw leg causes the
         market to be skipped rather than mis-evaluated.
@@ -150,27 +200,27 @@ def evaluate(
     if expect_outcomes is not None and len(all_outcomes) != expect_outcomes:
         return None
 
-    best = best_odds_per_outcome(book_odds)
+    best = best_odds_per_outcome(book_odds, commission_pct)
     if set(best) != all_outcomes:
         return None
 
-    c = commission_pct / 100.0
-    # Commission is levied on winnings, not on the stake returned.
-    eff = {o: 1.0 + (odds - 1.0) * (1.0 - c) for o, (odds, _) in best.items()}
-
     outcomes = sorted(best)
-    inverse_sum = sum(1.0 / eff[o] for o in outcomes)
-
     legs = {
-        o: Leg(outcome=o, book=best[o][1], odds=best[o][0])
+        o: Leg(outcome=o, book=best[o][1], odds=best[o][0],
+               commission_pct=commission_for(commission_pct, best[o][1]))
         for o in outcomes
     }
+    # S is summed over effective odds, so a commission-charging leg raises S
+    # and shrinks the margin exactly as it shrinks the money.
+    inverse_sum = sum(1.0 / legs[o].effective_odds for o in outcomes)
     return Arb(
         outcomes=outcomes,
         legs=legs,
         inverse_sum=inverse_sum,
         margin=(1.0 / inverse_sum) - 1.0,
         n_books_in_market=len(book_odds),
+        # Kept for reporting only. The maths reads Leg.commission_pct, because
+        # a market can now carry two different rates at once.
         commission_pct=commission_pct,
     )
 
@@ -180,8 +230,8 @@ def evaluate(
 # ---------------------------------------------------------------------------
 
 def _effective_odds(arb: Arb) -> Dict[str, float]:
-    c = arb.commission_pct / 100.0
-    return {o: 1.0 + (leg.odds - 1.0) * (1.0 - c) for o, leg in arb.legs.items()}
+    """Per leg, not per market — the legs can sit at different rates."""
+    return {o: leg.effective_odds for o, leg in arb.legs.items()}
 
 
 def allocate(arb: Arb, bankroll: float, increment: float = 0.01) -> Arb:
@@ -267,7 +317,11 @@ def recommend_first_leg(arb: Arb) -> str:
     implied probability, and the books offering an outlier long price are the
     ones about to correct it. Getting the fragile leg down first means that if
     the second has moved you are unhedged on the *shorter* price, which is both
-    a smaller stake and easier to lay off."""
+    a smaller stake and easier to lay off.
+
+    Ranked on the raw price, deliberately, not the commission-adjusted one.
+    This is about which quote is most likely to vanish, and an exchange price
+    drifts on its own displayed number — commission has no bearing on that."""
     return max(arb.outcomes, key=lambda o: arb.legs[o].odds)
 
 

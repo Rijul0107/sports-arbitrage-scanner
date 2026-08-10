@@ -325,6 +325,16 @@ const DEMO = {
    both books are actually used: one book holding every best price is not a
    cross-book arb and is not placeable, since books will not take both sides.
    ============================================================ */
+/* Commission on winnings, per book — mirrors core.commission_for(). Books not
+   listed charge nothing, which is every Australian corporate. Sent as a rate
+   in the payload, never as a derived figure. */
+let COMMISSION = {};
+const commissionFor = b => Number(COMMISSION[b] || 0);
+
+/* The price after commission. Levied on the profit, not the stake returned,
+   so 2.20 at 5% pays 1 + 1.20*0.95 = 2.14. Mirrors Leg.effective_odds. */
+const effOdds = (odds, book) => 1 + (odds - 1) * (1 - commissionFor(book) / 100);
+
 function evaluatePair(g, a, b){
   const oa = g.odds[a], ob = g.odds[b];
   if(!oa || !ob) return null;
@@ -332,9 +342,14 @@ function evaluatePair(g, a, b){
   for(const o of g.outcomes){
     const va = oa[o], vb = ob[o];
     if(!(va > 1) && !(vb > 1)) return null;        // outcome uncovered by this pair
-    legs.push((va ?? 0) >= (vb ?? 0) ? {o, book:a, odds:va} : {o, book:b, odds:vb});
+    // Chosen on the net price, not the headline. Betfair at 2.20 less 5% pays
+    // 2.14, so a corporate at 2.16 is the better leg despite reading shorter.
+    // Ranking on the raw number here would silently disagree with core.py.
+    const ea = (va > 1) ? effOdds(va, a) : 0, eb = (vb > 1) ? effOdds(vb, b) : 0;
+    legs.push(ea >= eb ? {o, book:a, odds:va, eff:ea}
+                       : {o, book:b, odds:vb, eff:eb});
   }
-  const S = legs.reduce((s,l)=> s + 1/l.odds, 0);
+  const S = legs.reduce((s,l)=> s + 1/l.eff, 0);
   const usesBoth = new Set(legs.map(l=>l.book)).size === 2;
   return {a, b, margin:(1/S - 1)*100, inverseSum:S, arb: S < 1 && usesBoth, usesBoth, legs};
 }
@@ -353,6 +368,10 @@ function computePairs(g, books){
 
 function hydrate(data){
   const books = data.books || [];
+  // Set before any pairing is computed: commission decides which book wins an
+  // outcome, so a stale rate here would produce a different board to the one
+  // the server saw.
+  COMMISSION = data.commission || {};
   for(const g of data.games) if(!g.pairs) g.pairs = computePairs(g, books);
   return data;
 }
@@ -364,7 +383,12 @@ function hydrate(data){
    maximises the guaranteed payout and keeps total outlay within the stake.
    ============================================================ */
 function allocate(legs, total, increment=1){
-  const inv = legs.map(l => 1/l.odds);
+  // Effective odds throughout: the split, the remainder pass and the returns.
+  // A leg whose commission is ignored here would be staked wrong AND would
+  // report the bookmaker's slip figure rather than what lands in the account,
+  // overstating the guaranteed profit by the commission.
+  const eff = legs.map(l => l.eff ?? effOdds(l.odds, l.book));
+  const inv = eff.map(e => 1/e);
   const S = inv.reduce((a,b)=>a+b,0);
   const stakes = inv.map(v => Math.floor(total*(v/S)/increment)*increment);
   let left = total - stakes.reduce((a,b)=>a+b,0);
@@ -372,11 +396,11 @@ function allocate(legs, total, increment=1){
   while(left >= increment - 1e-9 && guard++ < 100000){
     let worst = 0;
     for(let i=1;i<legs.length;i++)
-      if(stakes[i]*legs[i].odds < stakes[worst]*legs[worst].odds) worst = i;
+      if(stakes[i]*eff[i] < stakes[worst]*eff[worst]) worst = i;
     stakes[worst] += increment; left -= increment;
   }
   const outlay = stakes.reduce((a,b)=>a+b,0);
-  const rets = stakes.map((s,i)=> s*legs[i].odds);
+  const rets = stakes.map((s,i)=> s*eff[i]);
   return {stakes, outlay, rets, worst:Math.min(...rets), best:Math.max(...rets),
           profit: Math.min(...rets) - outlay};
 }

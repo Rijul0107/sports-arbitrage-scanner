@@ -159,6 +159,77 @@ check("every pair margin matches hand calculation", handok)
 
 print()
 print("=" * 72)
+print("5b. PER-BOOK COMMISSION, RE-DERIVED IN EXACT FRACTIONS")
+print("=" * 72)
+# Betfair charges commission on winnings; the corporates do not. Recomputed
+# here with Fractions so float error cannot hide a logic error, and against an
+# exhaustive assignment search that applies each book's own rate.
+COMM = {"Betfair": F(5)}
+
+def frac_eff(odds, book):
+    """1 + (odds-1)*(1-c), in exact arithmetic."""
+    return 1 + (F(str(odds)) - 1) * (1 - COMM.get(book, F(0)) / 100)
+
+def exhaustive_best_S(book_odds):
+    """Lowest S over every assignment of outcomes to books, each priced at
+    that book's own commission. Independent of core.py's greedy selection."""
+    outcomes = sorted({o for p in book_odds.values() for o in p})
+    best = None
+    for assign in product(sorted(book_odds), repeat=len(outcomes)):
+        try:
+            S = sum(1 / frac_eff(book_odds[assign[i]][o], assign[i])
+                    for i, o in enumerate(outcomes))
+        except KeyError:
+            continue
+        if best is None or S < best:
+            best = S
+    return best
+
+random.seed(101)
+mism_S = mism_arb = mism_net = 0
+for _ in range(1500):
+    names = random.sample(["Betfair", "SportsBet", "TAB", "Ladbrokes", "Betr"],
+                          random.randint(2, 5))
+    books = {b: {"X": round(random.uniform(1.3, 3.5), 2),
+                 "Y": round(random.uniform(1.3, 3.5), 2)} for b in names}
+    arb = evaluate(books, commission_pct={k: float(v) for k, v in COMM.items()})
+    if arb is None:
+        continue
+    ref = exhaustive_best_S(books)
+    if abs(arb.inverse_sum - float(ref)) > 1e-9:
+        mism_S += 1
+    if arb.is_arb != (ref < 1):
+        mism_arb += 1
+    # Net return per leg must equal stake x exact effective odds, never the
+    # bookmaker slip figure — that difference IS the commission.
+    allocate(arb, 2000.0, increment=1.0)
+    for o in arb.outcomes:
+        leg = arb.legs[o]
+        exact = F(str(leg.stake)) * frac_eff(leg.odds, leg.book)
+        if abs(leg.returns - float(exact)) > 1e-9:
+            mism_net += 1
+
+check("commission: greedy selection equals exhaustive search (1500 markets)",
+      mism_S == 0, f"{mism_S} mismatches")
+check("commission: arbitrage detection agrees with exact fractions",
+      mism_arb == 0, f"{mism_arb} mismatches")
+check("commission: every leg reports net returns, not the slip figure",
+      mism_net == 0, f"{mism_net} legs wrong")
+
+# The specific failure the change exists to prevent.
+thin = {"Betfair": {"X": 2.02}, "SportsBet": {"Y": 2.02}}
+check("an edge that is real at 0% is correctly rejected at 5% on one book",
+      evaluate(thin).is_arb
+      and not evaluate(thin, commission_pct={"Betfair": 5.0}).is_arb)
+
+# Commission must change which book wins, not merely what it pays.
+tie = {"Betfair": {"X": 2.20, "Y": 1.90}, "SportsBet": {"X": 2.16, "Y": 1.95}}
+check("commission decides which book wins an outcome",
+      evaluate(tie).legs["X"].book == "Betfair"
+      and evaluate(tie, commission_pct={"Betfair": 5.0}).legs["X"].book == "SportsBet")
+
+print()
+print("=" * 72)
 print("6. THE CASE THAT MUST NOT BE CALLED AN ARB")
 print("=" * 72)
 # One book best on both sides: not placeable, must not be reported as a pair arb
