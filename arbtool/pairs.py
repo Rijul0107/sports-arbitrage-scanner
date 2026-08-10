@@ -70,7 +70,17 @@ def pair_matrix(book_odds: BookOdds,
         restricted = {a: book_odds[a], b: book_odds[b]}
         arb = evaluate(restricted, commission_pct=commission_pct,
                        expect_outcomes=expect_outcomes)
-        uses_both = bool(arb) and len({leg.book for leg in arb.legs.values()}) == 2
+        if arb is None:
+            # These two books between them do not cover every outcome, so there
+            # is no pairing here to report — not a pairing that pays badly.
+            # Keeping it produced a PairResult whose margin_pct is -inf, which
+            # the terminal matrix rendered as "-inf%" and counted in the "X of Y
+            # pairings" denominator. The dashboard's evaluatePair() drops these,
+            # so the two engines disagreed on Y whenever a book quoted only one
+            # side of a market — rare on h2h, routine on totals and spreads,
+            # where books suspend one side regularly.
+            continue
+        uses_both = len({leg.book for leg in arb.legs.values()}) == 2
         results.append(PairResult(a, b, arb, uses_both))
 
     results.sort(key=lambda r: -r.margin_pct)

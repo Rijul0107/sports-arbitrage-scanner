@@ -126,5 +126,38 @@ class TestDepthIsMeaningful(unittest.TestCase):
         self.assertGreater(ga2.depth, ga.depth)
 
 
+class TestUncoverablePairingsAreAbsent(unittest.TestCase):
+    """A pairing that cannot cover every outcome is not a pairing.
+
+    It used to be reported with margin_pct of -inf, which the terminal matrix
+    printed as "-inf%" and counted in the "X of Y pairings work" denominator,
+    while the dashboard's evaluatePair() dropped it. The two engines therefore
+    disagreed about Y whenever a book quoted only one side of a market — rare
+    on head-to-head, routine on totals and spreads, where books suspend one
+    side regularly. Guarded here and end to end in tests/test_dual_engine.py.
+    """
+    ONE_SIDED = {
+        "A": {"Over 50.5": 3.97},
+        "B": {"Under 50.5": 1.69},
+        "C": {"Under 50.5": 1.96},
+    }
+
+    def test_pair_covering_one_outcome_is_dropped(self):
+        pairs = pair_matrix(self.ONE_SIDED, ["A", "B", "C"], expect_outcomes=2)
+        got = {tuple(sorted((p.book_a, p.book_b))) for p in pairs}
+        self.assertEqual(got, {("A", "B"), ("A", "C")})
+        self.assertNotIn(("B", "C"), got)      # both quote Under and nothing else
+
+    def test_no_surviving_pairing_reports_no_margin(self):
+        pairs = pair_matrix({"B": {"Under 50.5": 1.69}, "C": {"Under 50.5": 1.96}},
+                            ["B", "C"], expect_outcomes=2)
+        self.assertEqual(pairs, [])
+
+    def test_every_reported_margin_is_a_real_number(self):
+        for p in pair_matrix(self.ONE_SIDED, ["A", "B", "C"], expect_outcomes=2):
+            self.assertTrue(float("-inf") < p.margin_pct < float("inf"),
+                            f"{p.label} reports {p.margin_pct}")
+
+
 if __name__ == "__main__":
     unittest.main(verbosity=2)
