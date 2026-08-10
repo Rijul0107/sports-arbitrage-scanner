@@ -15,12 +15,43 @@ from watch import demo_events
 
 
 def demo_opps():
-    return [o for o in (assess_event(ev, "rugbyleague_nrl", "NRL (demo)", config)
-                        for ev in demo_events()) if o]
+    # assess_event returns a list: one entry per market in the event, because
+    # totals and spreads carry a separate market per line.
+    return [o for ev in demo_events()
+            for o in assess_event(ev, "rugbyleague_nrl", "NRL (demo)", config)]
 
 
 def playable():
     return [o for o in demo_opps() if o.placeable and o.profit >= config.MIN_PROFIT]
+
+
+class TestSignatureIdentity(unittest.TestCase):
+    """One alert per market, not per fixture — and h2h keeps the old key.
+
+    A game can now carry a head-to-head arb and a 50.5 totals arb at once.
+    Keying suppression on the fixture would silence one of them and lose real
+    money. Head-to-head deliberately keeps the bare event id so the suppression
+    state already on the droplet survives the deploy that added the markets.
+    """
+    def _opp(self, market_key, label):
+        o = playable()[0]
+        o.market_key, o.market_label = market_key, label
+        return o
+
+    def test_h2h_signature_is_the_bare_event_id(self):
+        self.assertEqual(alert._sig(self._opp("h2h", "")), self._opp("h2h", "").event_id)
+
+    def test_two_markets_on_one_fixture_do_not_share_a_signature(self):
+        sigs = {alert._sig(self._opp(k, lbl)) for k, lbl in
+                [("h2h", ""), ("totals", "Total 50.5"), ("spreads", "Line 1.5")]}
+        self.assertEqual(len(sigs), 3)
+
+    def test_unlabelled_non_h2h_market_cannot_collide_with_h2h(self):
+        # Defence in depth: lines.py drops a lined market with no line, so this
+        # should be unreachable. If it ever is reached, it must not silence the
+        # head-to-head alert for the same fixture.
+        self.assertNotEqual(alert._sig(self._opp("totals", "")),
+                            alert._sig(self._opp("h2h", "")))
 
 
 class TestSuppression(unittest.TestCase):
@@ -88,6 +119,87 @@ class TestSuppression(unittest.TestCase):
         opp = playable()[0]
         seen = {alert._sig(opp): {"at": self.now - 20 * 60, "profit": opp.profit}}
         self.assertFalse(alert.is_fresh(opp, seen, self.now))
+
+
+class TestScanWindow(unittest.TestCase):
+    """The window is a credit control, not a preference.
+
+    alert.py exits before making any request outside it, so the window and the
+    cron interval together are the entire monthly bill. It lives in config.py
+    precisely so books.py can price a day's polling against the same numbers —
+    a second copy of the hours is how that estimate quietly stops describing
+    what is actually being spent.
+    """
+    def test_window_comes_from_config(self):
+        self.assertEqual(alert.WINDOW_START, tuple(config.SCAN_WINDOW_START))
+        self.assertEqual(alert.WINDOW_END, tuple(config.SCAN_WINDOW_END))
+
+    def test_edges_are_start_inclusive_end_exclusive(self):
+        from datetime import datetime
+        def at(h, m):
+            return datetime(2026, 8, 10, h, m, tzinfo=alert.TZ)
+        sh, sm = config.SCAN_WINDOW_START
+        eh, em = config.SCAN_WINDOW_END
+        self.assertTrue(alert.in_window(at(sh, sm)), "start minute must scan")
+        self.assertFalse(alert.in_window(at(eh, em)), "end minute must not")
+        self.assertFalse(alert.in_window(at(sh, sm - 1)))
+
+    def test_billable_runs_match_what_books_reports(self):
+        """books.py prices the month off this count. If it drifts from the real
+        window, the number that decides whether a market is affordable is a
+        guess."""
+        from books import runs_per_day
+        every = config.CRON_MINUTES
+        from datetime import datetime
+        billable = sum(
+            1 for m in range(0, 24 * 60, every)
+            if alert.in_window(datetime(2026, 8, 10, m // 60, m % 60, tzinfo=alert.TZ)))
+        self.assertEqual(runs_per_day(config), billable)
+
+    # Active keys on 2026-08-10, from `books.py --sports`. The count moves
+    # weekly with tennis and rises to roughly 15 in the September-October
+    # finals period, which is a known and documented cliff — see config.py.
+    MEASURED_KEYS = 11
+    PLAN = 20_000
+
+    def _credits_per_run(self, n_keys):
+        """What one poll costs: markets x regions for every active key.
+
+        Derived from SPORT_MARKETS rather than written down, so adding a market
+        moves this test rather than leaving it asserting a stale number."""
+        per_sport = dict(getattr(config, "SPORT_MARKETS", {}) or {})
+        regions = len([r for r in config.REGIONS.split(",") if r])
+        named = sum(len(m.split(",")) for m in per_sport.values())
+        default = len(config.DEFAULT_MARKETS.split(","))
+        rest = max(0, n_keys - len(per_sport)) * default
+        return (named + rest) * regions
+
+    def test_configured_schedule_fits_the_plan(self):
+        """A tripwire, not a law. If someone tightens CRON_MINUTES, widens the
+        window, or adds a market to SPORT_MARKETS, this fails before the month
+        does. 31-day month, because that is the one that runs out."""
+        from books import runs_per_day
+        month = self._credits_per_run(self.MEASURED_KEYS) * runs_per_day(config) * 31
+        self.assertLess(
+            month, self.PLAN,
+            f"the scheduled cron projects {month:,} credits against a "
+            f"{self.PLAN:,} plan. Re-run `books.py --sports` and either widen "
+            f"CRON_MINUTES or trim SPORT_MARKETS.")
+
+    def test_peak_season_overspend_is_known_and_quantified(self):
+        """Documents the cliff rather than pretending it is not there.
+
+        At ~15 active keys this config exceeds the plan. That is accepted, not
+        overlooked: the fix is to trim SPORT_MARKETS before September, and this
+        test exists so the number is in the repo rather than in someone's head.
+        If it starts failing, peak season has become affordable and the warnings
+        in config.py and deploy/crontab.txt are stale."""
+        from books import runs_per_day
+        peak = self._credits_per_run(15) * runs_per_day(config) * 31
+        self.assertGreater(
+            peak, self.PLAN,
+            "peak season now fits — update the warnings in config.py and "
+            "deploy/crontab.txt, which say it does not.")
 
 
 class TestVerificationNote(unittest.TestCase):

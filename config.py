@@ -219,7 +219,17 @@ MAX_DATA_AGE_SECONDS = 120
 #                   sparse but UFC main cards are a real AU market
 #   ncaaf           41/126 usable but only THREE books      dropped — three books
 #                   is three pairings, and it is US college
-#   icehockey_nhl    5/31 usable                            dropped
+#   icehockey_nhl    5/31 usable on h2h                     ADDED 2026-08-10, but
+#                   for totals only — see SPORT_MARKETS. h2h is as poor as that
+#                   count suggests and gets poorer, because a third of the AU
+#                   h2h quotes carry a Draw leg (regulation-time pricing) which
+#                   voids the whole market for that event. Totals reached 12/31
+#                   with four books and produced the only crossing measured
+#                   anywhere on 2026-08-10: Unibet Over 6.5 @ 2.14 against
+#                   PointsBet Under 6.5 @ 1.90, +0.64%. The cause is structural,
+#                   not a stale quote — all four books had updated inside 60
+#                   seconds, but TABtouch and Unibet run a 7.2% overround on a
+#                   sport no AU desk prioritises while SportsBet runs 2.9%.
 #   americanfootball_cfl  0/4 usable                        dropped
 #   lacrosse_pll     0/3, none of my books                  dropped
 #   baseball_npb    excluded on rules, not coverage: a 12-inning cap makes draws
@@ -232,7 +242,82 @@ SPORT_KEYS = [
     "americanfootball_nfl",
     "americanfootball_nfl_preseason",
     "mma_mixed_martial_arts",
+    "icehockey_nhl",           # totals only — see SPORT_MARKETS
 ]
+
+# ---------------------------------------------------------------------------
+# Markets, per sport
+# ---------------------------------------------------------------------------
+
+# Which markets to request for which sport. Per sport rather than one global
+# list because cost is [markets] x [regions] on every poll, and a market is
+# only worth its credit where AU books actually quote it. Measured 2026-08-10
+# over one full poll of the AU region:
+#
+#   NRL      spreads  9 books on 8 of 8 games   totals 4 books on 8 of 8
+#   AFL      spreads  8 books on 9 of 9 games   totals 3 books on 3 of 9
+#   NHL      totals   4 books on 12 of 31       spreads only 2 books
+#   MLB      spreads  6 books on 10 of 10       totals 5 books on 10 of 10
+#   WNBA     spreads  4 books on 5 of 5         totals 4 books on 5 of 5
+#   NFL pre  spreads/totals 4 books             — not added, HALF the spread
+#                                                 lines are whole numbers
+#   MMA      spreads none, totals 1 book        — h2h only, nothing to add
+#
+# MLB and WNBA were added 2026-08-10 to spend the headroom left by the */30
+# schedule, taking a poll from 15 credits to 19 and the month from 72% to 91%
+# of plan. MLB is the better of the two: six books on every game, and its
+# totals reached -1.27%, the closest any market came to crossing in the survey.
+# Note ~22% of MLB lines are whole numbers, so ALLOW_PUSH_LINES silently
+# discards a fifth of that board — that is the intended trade, not a fault.
+#
+# NRL and AFL quoted zero whole-number lines in that sample, so ALLOW_PUSH_LINES
+# costs nothing there and protects the US sports if they are ever added.
+#
+# Honest caveat: spreads and totals are NOT softer than head-to-head. The best
+# margin measured across ~200 line-markets was -1.27%, against a head-to-head
+# baseline that had already reached -1.36%. What they buy is more markets on
+# fixtures already paid for — 17 AFL spread-markets across 9 games where h2h
+# offers 9 — not better prices per market.
+SPORT_MARKETS = {
+    "rugbyleague_nrl": "h2h,spreads,totals",
+    "aussierules_afl": "h2h,spreads,totals",
+    "baseball_mlb": "h2h,spreads,totals",
+    "basketball_wnba": "h2h,spreads,totals",
+    "icehockey_nhl": "totals",
+}
+
+# Every sport not named above. Changing this multiplies the whole bill.
+DEFAULT_MARKETS = "h2h"
+
+# ---------------------------------------------------------------------------
+# Scan window
+# ---------------------------------------------------------------------------
+
+# Hours the scheduled scan runs, Australia/Sydney. (hour, minute), start
+# inclusive, end exclusive. The scheduler is deliberately allowed to fire more
+# often than this — alert.py trims to the window itself using zoneinfo, so
+# daylight saving is handled by the timezone database rather than by someone
+# remembering to edit a crontab in October and again in April. An out-of-window
+# run exits before any request and costs nothing.
+#
+# 06:40 to 22:40 Sydney. The end moved in from 23:00 on 2026-08-10; at a 30
+# minute interval that changes nothing, because no slot falls between 22:30 and
+# 23:00 either way. It matters only if the interval is ever tightened.
+SCAN_WINDOW_START = (6, 40)
+SCAN_WINDOW_END = (22, 40)
+
+# The scheduler's interval in minutes. Not read by alert.py — cron owns the
+# real schedule — but books.py prices a day's polling from it, and a number
+# here that disagrees with deploy/crontab.txt makes that estimate a lie.
+CRON_MINUTES = 30
+
+# Whole-number lines (Over 41, not Over 41.5) refund both stakes when the
+# result lands exactly there. That is not a loss, but it is not the guaranteed
+# profit the slip promises either, and the real danger is settlement drift:
+# books differ on whether a push voids one leg or both, and a leg voided at one
+# book while the other stands leaves a naked bet. Off by default. Turning it on
+# means accepting that `worst_profit` overstates what some results pay.
+ALLOW_PUSH_LINES = False
 
 # Prefixes for whole competition families where every key is two-outcome, so
 # new ones can be picked up without editing this file.

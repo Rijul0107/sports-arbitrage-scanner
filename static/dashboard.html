@@ -122,6 +122,12 @@
   .pill.depth{background:var(--series);color:#fff}
   .pill.warn{background:var(--gold);color:var(--felt-dark)}
   .pill.thin{background:rgba(161,59,44,.14);color:var(--red)}
+  /* Which market this row is. A line bet and the outright on the same fixture
+     are different bets, so this has to be legible at a glance rather than
+     inferred from the outcome names. */
+  .pill.mkt{background:var(--felt-dark);color:#fff}
+  .mkt-tag{font-family:var(--mono);font-size:10px;color:var(--felt-dark);
+           background:rgba(28,26,21,.07);padding:1px 5px;border-radius:2px;margin-left:6px}
 
   .game-body{padding:0 18px 18px;display:none}
   .game.open .game-body{display:block}
@@ -234,6 +240,20 @@ const DEMO = {
            Neds:{"Penrith Panthers":1.80,"Melbourne Storm":2.08}},
      ages:{SportsBet:11,Ladbrokes:24,TAB:38,Neds:9}},
 
+    // Same fixture, different bet. Totals and spreads carry one market per
+    // line, and only prices on the SAME line are opposing sides — so each line
+    // arrives as its own entry, already grouped by arbtool/lines.py. The line
+    // is folded into the outcome name so a leg cannot be confirmed against the
+    // wrong market in the app.
+    {id:"n1:totals:Total 50.5", sport:"NRL", home:"Penrith Panthers", away:"Melbourne Storm",
+     starts_in_min:47, market:"Total 50.5",
+     outcomes:["Over 50.5","Under 50.5"],
+     odds:{SportsBet:{"Over 50.5":1.95,"Under 50.5":1.87},
+           Ladbrokes:{"Over 50.5":1.90,"Under 50.5":1.95},
+           TAB:{"Over 50.5":2.10,"Under 50.5":1.75},
+           Neds:{"Over 50.5":1.80,"Under 50.5":2.05}},
+     ages:{SportsBet:14,Ladbrokes:26,TAB:40,Neds:12}},
+
     {id:"n2", sport:"NRL", home:"Sydney Roosters", away:"Brisbane Broncos", starts_in_min:190,
      outcomes:["Sydney Roosters","Brisbane Broncos"],
      odds:{SportsBet:{"Sydney Roosters":1.90,"Brisbane Broncos":1.90},
@@ -241,6 +261,18 @@ const DEMO = {
            TAB:{"Sydney Roosters":1.92,"Brisbane Broncos":1.88},
            Neds:{"Sydney Roosters":1.88,"Brisbane Broncos":1.94}},
      ages:{SportsBet:42,Ladbrokes:51,TAB:33,Neds:28}},
+
+    // Spreads. The two sides carry MIRRORED handicaps, never equal ones: -1.5
+    // and +1.5 partition every result between them. Two books both quoting
+    // "1.5" in the same direction is not a hedge and is filtered upstream.
+    {id:"n2:spreads:Line 1.5", sport:"NRL", home:"Sydney Roosters", away:"Brisbane Broncos",
+     starts_in_min:190, market:"Line 1.5",
+     outcomes:["Sydney Roosters -1.5","Brisbane Broncos +1.5"],
+     odds:{SportsBet:{"Sydney Roosters -1.5":1.92,"Brisbane Broncos +1.5":1.88},
+           Ladbrokes:{"Sydney Roosters -1.5":1.85,"Brisbane Broncos +1.5":1.95},
+           TAB:{"Sydney Roosters -1.5":2.05,"Brisbane Broncos +1.5":1.80},
+           Neds:{"Sydney Roosters -1.5":1.80,"Brisbane Broncos +1.5":2.02}},
+     ages:{SportsBet:44,Ladbrokes:53,TAB:35,Neds:30}},
 
     {id:"n3", sport:"NRL", home:"Parramatta Eels", away:"Canberra Raiders", starts_in_min:275,
      outcomes:["Parramatta Eels","Canberra Raiders"],
@@ -483,7 +515,8 @@ function renderBoard(games){
   for(const g of games){
     const {top, nArb, profit, placeable} = play(g);
     h += `<tr class="${placeable?'hot':''}" data-jump="${g.id}">
-      <td class="team">${esc(g.home)} <span class="n">v</span> ${esc(g.away)}</td>
+      <td class="team">${esc(g.home)} <span class="n">v</span> ${esc(g.away)}${
+        g.market?`<span class="mkt-tag">${esc(g.market)}</span>`:''}</td>
       <td class="n">${esc(g.sport)}</td>
       <td class="num n">${g.starts_in_min}m</td>
       <td class="num ${nArb?'':'n'}">${nArb?esc(top.a)+' + '+esc(top.b):'—'}</td>
@@ -648,6 +681,7 @@ function renderGames(){
           <div class="teams">${esc(g.home)}<span class="vs">v</span>${esc(g.away)}</div>
           <div class="meta">
             <span>${esc(g.sport)}</span>
+            ${g.market?`<span class="pill mkt">${esc(g.market)}</span>`:''}
             <span>starts in ${g.starts_in_min} min</span>
             <span>oldest quote ${oldest}s</span>
             ${nArb?`<span class="pill depth">${nArb} of ${g.pairs.length} pairings</span>`:''}

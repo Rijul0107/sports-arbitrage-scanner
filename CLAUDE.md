@@ -20,9 +20,14 @@ feature completeness.
 Scope, deliberately narrow:
 
 - **Sports**: two-outcome markets only — tennis, NRL, AFL, NBA/WNBA/NBL, MLB,
-  NFL and MMA. No draw leg to cover, so an arbitrage needs only two opposing
-  prices. Configured as `SPORT_KEYS` plus `SPORT_PREFIXES` in `config.py`.
-- **Market**: head-to-head only.
+  NFL, MMA and NHL. No draw leg to cover, so an arbitrage needs only two
+  opposing prices. Configured as `SPORT_KEYS` plus `SPORT_PREFIXES` in
+  `config.py`.
+- **Markets**: head-to-head everywhere; spreads and totals on NRL and AFL;
+  totals on NHL. Per sport in `config.SPORT_MARKETS`, because cost is
+  `markets × regions` per poll and a market is only worth its credit where AU
+  books actually quote it. Every market must be two-outcome *at one line* —
+  see §5, this is where the money is lost if it is got wrong.
 - **Region**: Australian bookmakers.
 - **Timing**: pre-match only, for legal reasons (see §5).
 - **Books**: twelve, configured in `config.py`. Betfair is an exchange and
@@ -68,11 +73,17 @@ arbtool/core.py ........ evaluate() → Arb. allocate() → stakes.
      │                   Pure functions, no I/O, no imports from elsewhere
      │                   in the package. This is the load-bearing module.
      ▼
+arbtool/lines.py ....... submarkets() → SubMarket. Splits one API market into
+     │                   one two-outcome market per LINE, grouped on the exact
+     │                   signed line so a sandwich cannot be assembled. Read
+     │                   this before touching totals or spreads — see §6.
+     ▼
 arbtool/pairs.py ....... analyse_game() → GameAnalysis. Evaluates EVERY
      │                   pairing of books, not just the global best.
      ▼
-arbtool/scan.py ........ assess_event() → Opportunity. Applies safety rules,
-     │                   stakes the best pairing, ranks by cash.
+arbtool/scan.py ........ assess_event() → list[Opportunity], one per market.
+     │                   Applies safety rules, stakes the best pairing,
+     │                   ranks by cash.
      ├──────────────────────────────┐
      ▼                              ▼
 watch.py                       serve.py
@@ -209,6 +220,33 @@ answer if a book erroneously lists a third outcome. Never relax this silently
 — a mis-evaluated three-way market presented as a two-way arb is exactly the
 kind of error that costs money.
 
+`lines.submarkets()` enforces the same rule earlier and harder: a book listing
+three or more outcomes **poisons that market for the whole event**, so no
+grouping is built from it at all. This is not belt-and-braces, it is load
+bearing. Under the single `h2h` key some books price ice hockey including
+overtime (two-way) and others price regulation time (three-way, with a Draw).
+Measured 2026-08-10: NHL returned 27 two-way and 14 three-way h2h quotes,
+boxing returned 17 two-way against 132 three-way. Backing one team at a
+two-way book and the other at a three-way book loses **both** legs when the
+game is drawn in regulation and the first team wins in overtime — a sandwich
+with no line involved. Guarded by
+`tests/test_lines.py::test_three_way_quote_poisons_the_market_for_the_event`.
+
+### Same line, or it is not a hedge
+
+Totals and spreads are only two-sided at one exact line. Over 40.5 against
+Under 40.5 is a hedge; Over 41.5 against Under 40.5 is a **sandwich** that
+loses both legs on a total of exactly 41. Spreads carry a nastier version,
+because the two sides hold *mirrored* points rather than equal ones — grouping
+on `abs(point)` looks right and pairs `Penrith -1.5` with `Roosters -1.5`,
+which needs both teams to win by two.
+
+`lines.submarkets()` groups on the exact signed side set before anything
+downstream sees a price, so there is no code path that compares two different
+lines. `is_sandwich()` is the named guard, asserted against every group built.
+Do not add a market by extending the `markets` string alone — it has to come
+through `submarkets()`.
+
 ### Partial coverage is not arbitrage
 
 If any named outcome lacks a usable price anywhere, `evaluate()` returns
@@ -271,7 +309,27 @@ reintroduce precomputed margins into a payload or fixture.
 
 `GameAnalysis.outcomes` is sorted alphabetically so the maths is deterministic.
 That is the wrong order to *read* a match in. Use
-`Opportunity.display_outcomes` for anything user-facing — home team first.
+`Opportunity.display_outcomes` for anything user-facing — home team first. It
+matches on prefix, not equality, because a spreads outcome is the team name
+plus its handicap (`"Penrith Panthers -1.5"`).
+
+### Truncating an outcome name loses the line
+
+`"Sydney Roosters -1.5"` cut to 14 characters reads `"Sydney Rooster"`, which
+is the outright bet on a different market. `watch.col_name()` abbreviates the
+team and keeps the handicap. Anywhere else that shortens an outcome for display
+has to do the same.
+
+### A pairing that cannot be evaluated is not a pairing
+
+`pair_matrix()` used to append a `PairResult` even when `evaluate()` returned
+`None`, whose `margin_pct` is `-inf`. The terminal matrix rendered that as
+`-inf%` and counted it in the "X of Y pairings work" denominator, while the
+dashboard's `evaluatePair()` dropped it — so the two engines disagreed about Y
+whenever a book quoted only one side of a market. Rare on head-to-head, routine
+on totals and spreads where books suspend one side. `pair_matrix()` now skips
+them. Guarded by `tests/test_pairs.py::TestUncoverablePairingsAreAbsent` and end
+to end by `tests/test_dual_engine.py`.
 
 ### `str.replace` with an empty match
 
@@ -294,14 +352,20 @@ never precomputed margins — so the page derives every figure from the prices i
 displays. What is on screen therefore cannot disagree with the prices it came
 from.
 
-The cost is duplication. The two implementations were verified to return
-identical results across the full demo dataset. **If you change one, change the
-other and re-verify**, or the browser and terminal will silently diverge.
+The cost is duplication. **If you change one, change the other and re-verify**,
+or the browser and terminal will silently diverge.
 
-The verification approach: extract the JS functions from the HTML, run the same
-inputs through both, compare margins to 1e-6 and `is_arb` exactly. There is a
-worked example in the git history of this session; `tests/e2e_server_browser.mjs`
-covers the integration path.
+Verification is no longer manual. `python3 tests/test_dual_engine.py` extracts
+the real functions from the shipped HTML — by walking braces from a named
+function, never by slicing between string offsets, see §6 — and runs them over
+the demo markets plus 600 random boards, comparing margins to 1e-6 and `is_arb`
+exactly. It needs `node` on PATH and skips without it. The random half is the
+half that earns its keep: it includes books quoting only one side, which is
+where the engines were actually found to disagree.
+
+`tests/e2e_server_browser.mjs` covers the integration path but hardcodes a
+playwright install that does not exist on every machine, so it is not the check
+that runs.
 
 ---
 
@@ -316,17 +380,26 @@ covers the integration path.
   "credits_spent": 3,
   "fetched_at": "2026-08-09T05:05:17+00:00",
   "games": [{
-    "id": "e1",
+    // One entry per MARKET, not per game. A fixture with a head-to-head arb
+    // and a 50.5 totals arb appears twice, with different ids.
+    "id": "e1",                      // event id, or "<id>:<market>:<label>"
     "sport": "NRL",
     "home": "Penrith Panthers",
     "away": "Melbourne Storm",
     "starts_in_min": 47,
+    "market": "",                    // "" for h2h, else "Total 50.5" / "Line 1.5"
     "outcomes": ["Penrith Panthers", "Melbourne Storm"],   // home first
     "odds":  {"Sportsbet": {"Penrith Panthers": 2.12, "Melbourne Storm": 1.78}, ...},
     "ages":  {"Sportsbet": 11, "Ladbrokes": 24, ...}       // seconds, or null
   }]
 }
 ```
+
+For a lined market the outcome names carry the line — `"Over 50.5"`,
+`"Penrith Panthers -1.5"` — so no surface needs to know that lines exist and no
+leg can be confirmed against the wrong market in the app. The line is *not*
+sent as a separate numeric field, for the same reason margins are not sent: a
+second copy of a fact can drift from the first.
 
 No `pairs` key. The page computes them. See §7.
 
@@ -346,14 +419,20 @@ pattern and new code should too.
 ## 9. Testing policy
 
 ```bash
-python3 tests/test_core.py       # 26 — arbitrage maths, staking, edge cases
-python3 tests/test_pairs.py      # 16 — pairwise matrix, depth, the arb/is_arb trap
-python3 tests/test_server.py     #  6 — server, payload shape, in-play exclusion
-python3 verify.py                # independent verification (see below)
-node tests/e2e_server_browser.mjs  # requires a server on :8792, see the file
+python3 tests/test_core.py        # 33 — arbitrage maths, staking, edge cases
+python3 tests/test_pairs.py       # 19 — pairwise matrix, depth, the arb/is_arb trap
+python3 tests/test_lines.py       # 21 — the sandwich guard and line grouping
+python3 tests/test_server.py      # 17 — server, payload shape, in-play exclusion
+python3 tests/test_alert.py       # 22 — Telegram suppression and formatting
+python3 tests/test_bot.py         # 42 — reply bot, restake
+python3 tests/test_dual_engine.py #  1 — browser engine v Python, 600+ boards
+python3 verify.py                 # independent verification (see below)
+node tests/e2e_server_browser.mjs   # needs a server on :8792 AND a playwright
+                                    # install it hardcodes — usually will not run
 ```
 
-**After any change to `core.py` or `pairs.py`, run `verify.py`.** It is not a
+**After any change to `core.py`, `pairs.py` or `lines.py`, run `verify.py` and
+`tests/test_dual_engine.py`.** It is not a
 unit test suite. It re-derives results a different way:
 
 - headline numbers recomputed by hand in **exact fractions**, so float error
@@ -372,20 +451,78 @@ wrong. A test that passes both before and after your change has not tested it.
 
 ## 10. Credit economics
 
-| Pattern | Credits | Against 500/month |
+The plan is the $30 tier: **20,000 credits a month.** Cost is
+`[markets] × [regions]` per sport key that returns games; empty responses are
+free, and `/sports` and `/events` cost nothing at all.
+
+Markets are per sport in `config.SPORT_MARKETS`, so a poll is not one credit
+per key any more:
+
+| Sport key | Markets | Credits |
 |---|---|---|
-| One poll, NRL + tennis in season | 2 | |
-| Dashboard open 2h at 60s refresh | ~240 | half the month |
-| Terminal watch, 2h before a fixture | ~120 | four sessions |
-| Continuous all month | ~86,000 | needs a paid plan |
+| `rugbyleague_nrl` | h2h, spreads, totals | 3 |
+| `aussierules_afl` | h2h, spreads, totals | 3 |
+| `baseball_mlb` | h2h, spreads, totals | 3 |
+| `basketball_wnba` | h2h, spreads, totals | 3 |
+| `icehockey_nhl` | totals | 1 |
+| every other active key | h2h | 1 each |
+
+`python3 books.py --sports` prices the next poll for free and is the only
+number worth trusting, because the active key count moves weekly with tennis
+tournaments. Measured 2026-08-10: **11 keys, 19 credits a run**. The cron is
+`*/30` all day and `alert.py` trims to `config.SCAN_WINDOW_START/END`
+(06:40–22:40 Sydney) itself, so 32 runs land in-window: **608 a day, about
+18,240 a month — 91% of plan.** Deliberately close; unspent credits buy
+nothing.
+
+**The headroom is thin, and the cliff is nearer than the finals.** Two more
+live tennis tournaments tips it, and tennis adds keys without warning:
+
+| Active keys | Credits/run | Per month | |
+|---|---|---|---|
+| 11 (2026-08-10) | 19 | 18,240 | fits |
+| 13 | 21 | 20,160 | over |
+| 15 (finals) | 23 | 22,080 | over |
+
+Run `books.py --sports` (free) at the start of each month. When it goes over,
+trim `SPORT_MARKETS`: WNBA first (4 books, 5 fixtures, no crossing observed),
+then AFL totals (3 books on 3 of 9 games). Both tripwires are tested in
+`tests/test_alert.py::TestScanWindow`, which derives the cost from
+`SPORT_MARKETS` rather than a written-down number.
+
+The window lives in `config.py`, not in cron, so daylight saving is the
+timezone database's problem. `books.py` counts the billable runs from it by
+walking the day a minute at a time — cron fires on the wall clock, so `*/30`
+hits :00 and :30 and misses a window edge at :40 entirely, which counting hours
+and dividing gets wrong.
+
+Tightening the interval does not fit, and **`*/25` is a trap**: cron reads
+`*/n` on the minute field as "minutes 0–59 divisible by n", not "every n
+minutes rolling". `*/25` fires at :00, :25 and :50 — three times an hour with a
+ten-minute gap at the top, costing exactly what `*/20` costs rather than the
+fifth less the name implies. They coincide only when `n` divides 60.
+
+| Interval | Runs/day | Per day | Per month | |
+|---|---|---|---|---|
+| `*/30` | 32 | 608 | 18,240 | fits |
+| `*/25` | 48 | 912 | 27,360 | over |
+| `*/20` | 48 | 912 | 27,360 | over |
+
+That headroom is the budget for anything new. Before adding a market or a key,
+multiply: one more market on one already-polled sport is +32 credits a day, and
+one more market across all keys is +11 a run, +10,560 a month. Blanket
+`h2h,spreads,totals` everywhere would be 33 a run and ~31,700 a month — well
+over the plan. It was `*/20` until 2026-08-10; halving the frequency is what
+paid for spreads and totals, on the reasoning that prices days out from a
+fixture barely move between polls.
 
 The productive window is the couple of hours before a fixture — books are
-actively repricing and disagreement is widest. Tennis offers more simultaneous
-markets than NRL and is generally the better hunting ground.
+actively repricing and disagreement is widest. That is *not* how this tool is
+used in practice, which is days out; size any advice against the real pattern.
 
-If the user outgrows the free tier: RapidOddsAPI's $49/month tier gives 200,000
-credits with deeper AU coverage, against The Odds API's $59 for 100,000. Their
-$149 tier adds WebSocket, but it pushes after each scrape cycle so it removes
+If the plan is outgrown: RapidOddsAPI's $49/month tier gives 200,000 credits
+with deeper AU coverage, against The Odds API's $59 for 100,000. Their $149
+tier adds WebSocket, but it pushes after each scrape cycle so it removes
 polling latency, not capture latency — probably not worth it at this scale.
 
 ---

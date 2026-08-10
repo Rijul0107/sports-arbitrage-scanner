@@ -72,8 +72,11 @@ STATE_DIR = Path(os.environ.get("ARB_STATE_DIR") or Path(__file__).parent)
 # and the window has to survive daylight saving without anyone editing a cron
 # line twice a year.
 TZ = ZoneInfo("Australia/Sydney")
-WINDOW_START = (6, 40)      # 06:40
-WINDOW_END = (23, 0)        # 23:00
+# From config so books.py can price a day's polling against the same window.
+# Two copies of the hours is how the credit estimate quietly stops describing
+# what is actually being spent.
+WINDOW_START = tuple(getattr(config, "SCAN_WINDOW_START", (6, 40)))
+WINDOW_END = tuple(getattr(config, "SCAN_WINDOW_END", (10, 40)))
 
 SEEN_FILE = STATE_DIR / ".alert_seen.json"
 COOLDOWN_H = 6.0            # don't repeat the same pairing inside this window
@@ -119,16 +122,19 @@ def in_window(now=None) -> bool:
 
 
 def _sig(opp) -> str:
-    """Identity of an opportunity: the game.
+    """Identity of an opportunity: the game, and the market within it.
 
     Deliberately not the game plus the book pair. Ladbrokes and Neds are one
     Entain desk and quote identically, so the best pairing on a game flips
     between them on ties — which would look like a new opportunity every run
     and send the same match every 20 minutes. One fixture, one alert.
 
-    Prices are excluded for the same reason: a cent of drift is the same
-    opportunity, not a new one."""
-    return str(opp.event_id)
+    The market is in the key because a game is no longer one bet. Head-to-head,
+    the 50.5 total and the 1.5 line are three different positions that can all
+    be live at once, and suppressing two of them because the third was sent
+    would silently drop real money. Prices stay out for the original reason: a
+    cent of drift is the same opportunity, not a new one."""
+    return str(getattr(opp, "uid", opp.event_id))
 
 
 def load_seen() -> dict:
@@ -346,7 +352,11 @@ def format_hit(opp, cfg) -> str:
         f"<b>{money(arb.worst_profit)} guaranteed</b>  "
         f"({arb.realised_margin * 100:.2f}% on {whole(arb.total_stake)})",
         f"{e(opp.home)} v {e(opp.away)}",
-        f"<i>{e(opp.sport_title)}</i>",
+        # The market, when it is not head-to-head. The leg lines below already
+        # name their line ("Penrith Panthers -1.5"), but the header is what is
+        # read first and a line bet must not be mistaken for the outright.
+        f"<i>{e(opp.sport_title)}"
+        f"{' · ' + e(opp.market_label) if getattr(opp, 'market_label', '') else ''}</i>",
         "",
     ]
     for i, o in enumerate(order, 1):

@@ -73,12 +73,27 @@ def print_matrix(opp: Opportunity, books: List[str]):
         print(row)
 
 
+def col_name(name: str, width: int = 14) -> str:
+    """Shorten an outcome for a column heading without losing its handicap.
+
+    "Sydney Roosters -1.5" chopped to 14 characters reads "Sydney Rooster",
+    which is the outright bet on a different market. The line is the part that
+    must survive, so it is the team name that gets abbreviated."""
+    if len(name) <= width:
+        return name
+    head, sep, tail = name.rpartition(" ")
+    if sep and tail[:1] in "+-0123456789":
+        keep = width - len(tail) - 1
+        return f"{head[:keep]}·{tail}" if keep >= 1 else tail[-width:]
+    return name[:width]
+
+
 def print_prices(opp: Opportunity, books: List[str]):
     outcomes = opp.display_outcomes
     bo = opp.analysis.book_odds
     best = {o: max((bo[b][o], b) for b in bo if o in bo[b])[1] for o in outcomes}
     w = max(11, max(len(b) for b in books) + 2)
-    head = f"  {C.GREY}{'BOOK':<{w}}" + "".join(f"{o[:14]:>16}" for o in outcomes)
+    head = f"  {C.GREY}{'BOOK':<{w}}" + "".join(f"{col_name(o):>16}" for o in outcomes)
     print(head + f"{'OVERROUND':>12}{'AGE':>7}{C.R}")
     for b in books:
         if b not in bo:
@@ -107,7 +122,10 @@ def print_card(opp: Opportunity, cfg):
     print(f"{C.GREEN}{C.B}  {money(arb.worst_profit)} GUARANTEED   "
           f"{opp.best_margin_pct:.2f}% on {money(arb.total_stake)}{C.R}")
     print(f"{C.GREEN}{rule()}{C.R}")
-    print(f"  {C.B}{opp.home}  v  {opp.away}{C.R}")
+    # The market, when it is not head-to-head. Two cards for the same fixture
+    # are two different bets, and the fixture line alone does not say which.
+    tag = f"   {C.YEL}{opp.market_label}{C.R}" if opp.market_label else ""
+    print(f"  {C.B}{opp.home}  v  {opp.away}{C.R}{tag}")
     mins = opp.minutes_to_start
     print(f"  {C.GREY}{opp.sport_title}  ·  starts in {mins:.0f} min  ·  "
           f"oldest quote {opp.oldest_quote:.0f}s  ·  "
@@ -142,29 +160,63 @@ def print_card(opp: Opportunity, cfg):
 
 
 def demo_events():
+    """Fabricated prices covering all three markets the scanner reads.
+
+    Game 1 carries the head-to-head arbitrage plus two totals lines: 50.5,
+    which crosses, and a whole-number 50, which also crosses but is suppressed
+    because an exact total of 50 refunds both stakes. Seeing 50.5 on screen and
+    not 50 is the push guard working. Game 2 carries a spreads arbitrage on
+    mirrored 1.5 handicaps."""
     soon = (datetime.now(timezone.utc) + timedelta(minutes=47)).isoformat()
     fresh = datetime.now(timezone.utc).isoformat()
-    def bk(t, a, b, h, w):
+
+    def bk(t, markets):
         return {"key": t.lower(), "title": t, "last_update": fresh,
-                "markets": [{"key": "h2h", "outcomes":
-                             [{"name": h, "price": a}, {"name": w, "price": b}]}]}
+                "markets": markets}
+
+    def h2h(h, w, a, b):
+        return {"key": "h2h", "outcomes": [{"name": h, "price": a},
+                                           {"name": w, "price": b}]}
+
+    def totals(point, over, under):
+        return {"key": "totals", "outcomes":
+                [{"name": "Over", "price": over, "point": point},
+                 {"name": "Under", "price": under, "point": point}]}
+
+    def spreads(fav, dog, point, fav_price, dog_price):
+        # Mirrored by construction: the favourite gives the start the underdog
+        # receives. Any other pairing is not a hedge — see arbtool/lines.py.
+        return {"key": "spreads", "outcomes":
+                [{"name": fav, "price": fav_price, "point": -point},
+                 {"name": dog, "price": dog_price, "point": point}]}
+
     h, a = "Penrith Panthers", "Melbourne Storm"
     h2, a2 = "Sydney Roosters", "Brisbane Broncos"
     return [
         {"id": "d1", "commence_time": soon, "home_team": h, "away_team": a,
-         "bookmakers": [bk("SportsBet",2.12,1.78,h,a), bk("Ladbrokes",1.95,1.92,h,a),
-                        bk("TAB",1.85,1.98,h,a), bk("Neds",1.80,2.08,h,a)]},
+         "bookmakers": [
+             bk("SportsBet", [h2h(h, a, 2.12, 1.78), totals(50.5, 1.95, 1.87),
+                              totals(50, 1.95, 1.90)]),
+             bk("Ladbrokes", [h2h(h, a, 1.95, 1.92), totals(50.5, 1.90, 1.95)]),
+             bk("TAB",       [h2h(h, a, 1.85, 1.98), totals(50.5, 2.10, 1.75),
+                              totals(50, 2.20, 1.72)]),
+             bk("Neds",      [h2h(h, a, 1.80, 2.08), totals(50.5, 1.80, 2.05)]),
+         ]},
         {"id": "d2", "commence_time": soon, "home_team": h2, "away_team": a2,
-         "bookmakers": [bk("SportsBet",1.90,1.90,h2,a2), bk("Ladbrokes",1.87,1.93,h2,a2),
-                        bk("TAB",1.92,1.88,h2,a2), bk("Neds",1.88,1.94,h2,a2)]},
+         "bookmakers": [
+             bk("SportsBet", [h2h(h2, a2, 1.90, 1.90), spreads(h2, a2, 1.5, 1.92, 1.88)]),
+             bk("Ladbrokes", [h2h(h2, a2, 1.87, 1.93), spreads(h2, a2, 1.5, 1.85, 1.95)]),
+             bk("TAB",       [h2h(h2, a2, 1.92, 1.88), spreads(h2, a2, 1.5, 2.05, 1.80)]),
+             bk("Neds",      [h2h(h2, a2, 1.88, 1.94), spreads(h2, a2, 1.5, 1.80, 2.02)]),
+         ]},
     ]
 
 
 def run_demo(cfg):
     print(f"{C.CYAN}{C.B}Demo mode{C.R} {C.GREY}— fabricated prices, no API key, "
           f"no credits spent.{C.R}\n")
-    opps = [o for o in (assess_event(e, "rugbyleague_nrl", "NRL (demo)", cfg)
-                        for e in demo_events()) if o]
+    opps = [o for e in demo_events()
+            for o in assess_event(e, "rugbyleague_nrl", "NRL (demo)", cfg)]
     opps.sort(key=lambda o: -o.profit)
     for o in opps:
         if o.placeable and o.profit >= cfg.MIN_PROFIT:

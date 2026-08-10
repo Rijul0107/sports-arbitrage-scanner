@@ -12,13 +12,18 @@ from datetime import datetime, timezone
 from typing import Dict, List, Optional, Sequence
 
 from .api import OddsAPI, is_in_play, minutes_to_start, parse_iso, staleness_seconds
-from .core import Arb, allocate, apply_stake_limits, market_from_event, recommend_first_leg
+from .core import Arb, allocate, apply_stake_limits
+from .lines import submarkets
 from .pairs import GameAnalysis, analyse_game
 
 
 @dataclass
 class Opportunity:
-    """One game, fully analysed and staked."""
+    """One market in one game, fully analysed and staked.
+
+    Not one per game: head-to-head is a single market, but totals and spreads
+    carry one market per line and each line is a separate bet with its own
+    prices, its own best pairing and its own stake."""
     event_id: str
     sport_key: str
     sport_title: str
@@ -30,6 +35,9 @@ class Opportunity:
     analysis: GameAnalysis
     arb: Optional[Arb] = None             # the best pairing, staked
     profit: float = 0.0
+    market_key: str = "h2h"
+    market_label: str = ""                # "" for h2h, else "Total 50.5"
+    can_push: bool = False                # whole line: an exact result refunds
 
     @property
     def best_margin_pct(self) -> float:
@@ -44,11 +52,39 @@ class Opportunity:
         return self.arb is not None and self.arb.worst_profit > 0
 
     @property
+    def uid(self) -> str:
+        """Identity of this market, not of the game.
+
+        A game now yields several opportunities, so anything keyed on the event
+        id alone — the dashboard's per-game DOM ids, alert suppression — would
+        collapse a spreads arbitrage and a head-to-head arbitrage on the same
+        fixture into one.
+
+        Head-to-head keeps the bare event id on purpose: the suppression state
+        already on disk is keyed that way, so a standing h2h alert stays
+        suppressed across the deploy that added the other markets. Keyed on
+        market_key as well as the label so that a market arriving without a
+        label can never collide with the head-to-head entry."""
+        if self.market_key == "h2h" and not self.market_label:
+            return self.event_id
+        return f"{self.event_id}:{self.market_key}:{self.market_label}"
+
+    @property
     def display_outcomes(self) -> List[str]:
         """Home first, then away. GameAnalysis sorts outcomes alphabetically so
-        the maths is deterministic; that is the wrong order to read a match in."""
+        the maths is deterministic; that is the wrong order to read a match in.
+
+        Matched on prefix rather than equality because a spreads outcome is the
+        team name plus its handicap ("Penrith Panthers -1.5")."""
         outs = list(self.analysis.outcomes)
-        ordered = [o for o in (self.home, self.away) if o in outs]
+        ordered = []
+        for team in (self.home, self.away):
+            for o in outs:
+                if o in ordered:
+                    continue
+                if o == team or o.startswith(team + " "):
+                    ordered.append(o)
+                    break
         return ordered + [o for o in outs if o not in ordered]
 
     @property
@@ -61,11 +97,12 @@ class Opportunity:
         the page recomputes every margin, so what is on screen can never
         disagree with the prices it came from."""
         return {
-            "id": self.event_id,
+            "id": self.uid,
             "sport": self.sport_title,
             "home": self.home,
             "away": self.away,
             "starts_in_min": round(self.minutes_to_start or 0),
+            "market": self.market_label,
             "outcomes": self.display_outcomes,
             "odds": self.analysis.book_odds,
             "ages": {b: (round(a) if a is not None else None)
@@ -98,47 +135,83 @@ def commission_map(cfg) -> dict:
     return {b: float(per_book.get(b, flat)) for b in getattr(cfg, "BOOKS", ())}
 
 
-def assess_event(event: dict, sport_key: str, sport_title: str, cfg) -> Optional[Opportunity]:
-    """Evaluate one event against the configured books and safety rules."""
+def markets_for(cfg, sport_key: str) -> str:
+    """The market keys to request for one sport, as the API's comma list.
+
+    Per sport rather than global because a market is only worth its credit
+    where AU books actually quote it: NRL spreads carry nine books, MMA spreads
+    carry none, and both cost the same to ask for. Read through a helper so
+    scan, watch and books.py cannot disagree about what a poll costs."""
+    per_sport = dict(getattr(cfg, "SPORT_MARKETS", None) or {})
+    return per_sport.get(sport_key, getattr(cfg, "DEFAULT_MARKETS", "h2h"))
+
+
+def assess_event(event: dict, sport_key: str, sport_title: str, cfg) -> List[Opportunity]:
+    """Every safely comparable two-outcome market in one event, staked.
+
+    A list, not one result. Head-to-head yields at most one; totals and spreads
+    yield one per line, and each line is a separate bet that has to be staked
+    and reported on its own. Prices are grouped by their exact signed line in
+    lines.submarkets() before anything here sees them, so two different lines
+    can never be compared against each other."""
     if cfg.PRE_MATCH_ONLY and is_in_play(event):
-        return None                                   # illegal to place online in AU
+        return []                                     # illegal to place online in AU
     mins = minutes_to_start(event)
     if mins is not None and mins < cfg.MIN_MINUTES_TO_START:
-        return None                                   # no time to place both legs
+        return []                                     # no time to place both legs
 
     age = staleness_seconds(event)
     if age is not None and age > cfg.MAX_DATA_AGE_SECONDS:
-        return None                                   # too stale to trust
+        return []                                     # too stale to trust
 
-    all_odds = market_from_event(event, "h2h")
-    book_odds = {b: all_odds[b] for b in cfg.BOOKS if b in all_odds}
-    if len(book_odds) < 2:
-        return None                                   # need two of your books
+    wanted = [m for m in markets_for(cfg, sport_key).split(",") if m]
+    ages = quote_ages(event, cfg.BOOKS)
+    allow_push = bool(getattr(cfg, "ALLOW_PUSH_LINES", False))
+    commission = commission_map(cfg)
 
-    ga = analyse_game(book_odds, "h2h", cfg.BOOKS,
-                      commission_pct=commission_map(cfg))
-    if ga is None:
-        return None
+    out: List[Opportunity] = []
+    for sm in submarkets(event, wanted):
+        if sm.can_push and not allow_push:
+            # A whole line pays back both stakes on an exact result. The
+            # arbitrage is not wrong, but the guaranteed profit it advertises
+            # is not what you collect, and books differ on whether a push
+            # voids one leg or both.
+            continue
 
-    opp = Opportunity(
-        event_id=event.get("id", ""),
-        sport_key=sport_key, sport_title=sport_title,
-        home=event.get("home_team", "?"), away=event.get("away_team", "?"),
-        commence_time=event.get("commence_time", ""),
-        minutes_to_start=mins,
-        ages=quote_ages(event, cfg.BOOKS),
-        analysis=ga,
-    )
+        book_odds = {b: sm.book_odds[b] for b in cfg.BOOKS if b in sm.book_odds}
+        if len(book_odds) < 2:
+            continue                                  # need two of your books
 
-    bp = ga.best_pair          # None unless genuinely arbitrageable
-    if bp is not None:
-        arb = bp.arb
-        allocate(arb, cfg.TOTAL_STAKE, increment=cfg.STAKE_INCREMENT)
-        if getattr(cfg, "STAKE_LIMITS", None):
-            apply_stake_limits(arb, cfg.STAKE_LIMITS, increment=cfg.STAKE_INCREMENT)
-        opp.arb = arb
-        opp.profit = arb.worst_profit
-    return opp
+        ga = analyse_game(book_odds, sm.market_key, cfg.BOOKS,
+                          commission_pct=commission)
+        if ga is None:
+            continue
+
+        opp = Opportunity(
+            event_id=event.get("id", ""),
+            sport_key=sport_key, sport_title=sport_title,
+            home=event.get("home_team", "?"), away=event.get("away_team", "?"),
+            commence_time=event.get("commence_time", ""),
+            minutes_to_start=mins,
+            ages=ages,
+            analysis=ga,
+            market_key=sm.market_key,
+            market_label=sm.label,
+            can_push=sm.can_push,
+        )
+
+        bp = ga.best_pair          # None unless genuinely arbitrageable
+        if bp is not None:
+            arb = bp.arb
+            allocate(arb, cfg.TOTAL_STAKE, increment=cfg.STAKE_INCREMENT)
+            if getattr(cfg, "STAKE_LIMITS", None):
+                apply_stake_limits(arb, cfg.STAKE_LIMITS, increment=cfg.STAKE_INCREMENT)
+            opp.arb = arb
+            opp.profit = arb.worst_profit
+        out.append(opp)
+
+    out.sort(key=lambda o: (-o.profit, -o.best_margin_pct))
+    return out
 
 
 def select_sports(api: OddsAPI, cfg) -> List[dict]:
@@ -172,12 +245,11 @@ def scan(api: OddsAPI, cfg, sports: Optional[List[dict]] = None) -> Dict:
     opportunities: List[Opportunity] = []
     events_seen = 0
     for sp in sports:
-        events = api.odds(sp["key"], regions=cfg.REGIONS, markets="h2h")
+        events = api.odds(sp["key"], regions=cfg.REGIONS,
+                          markets=markets_for(cfg, sp["key"]))
         events_seen += len(events)
         for ev in events:
-            opp = assess_event(ev, sp["key"], sp["title"], cfg)
-            if opp:
-                opportunities.append(opp)
+            opportunities.extend(assess_event(ev, sp["key"], sp["title"], cfg))
 
     # Rank by cash, not percentage: a 3% edge on a market where rounding eats
     # the profit is worth less than a 1.5% edge that actually pays.

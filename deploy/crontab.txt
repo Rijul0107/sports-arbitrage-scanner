@@ -5,15 +5,50 @@
 # Check:     crontab -l
 # Remove:    crontab -r
 #
-# Times are the machine's local zone, already Australia/Sydney.
-# Window is 06:40 to 23:00, every 20 minutes: 50 runs a day.
+# One line, firing all day. The window is NOT expressed here: alert.py trims to
+# config.SCAN_WINDOW_START/END using zoneinfo, so daylight saving is handled by
+# the timezone database rather than by someone remembering to edit a cron line
+# in October and again in April. An out-of-window run exits before making any
+# request and costs nothing. The droplet's /etc/cron.d/arbdesk is the same
+# schedule, so laptop and box behave identically.
 #
-# Cost is 1 credit per sport key that returns games — empty responses are free.
-# At 11 keys that is about 550 credits a day and 16,500 a month, against the
-# $30 plan's 20,000. In the September-October finals period the key count rises
-# to roughly 15 and this schedule would exceed the plan; run
-# `python3 books.py --sports` (free) to see the live cost and drop to */30 if
-# it gets close.
+# Window is 06:40 to 22:40 Sydney, every 30 minutes: 32 runs land in it.
+#
+# Cost is [markets] x [regions] per sport key that returns games — empty
+# responses are free. Markets are per sport in config.SPORT_MARKETS: most keys
+# ask for h2h alone, while NRL, AFL, MLB and WNBA ask for h2h,spreads,totals
+# and cost 3 each, and NHL asks for totals alone. Measured 2026-08-10 with
+# `books.py --sports`: 11 active keys, 19 credits a run, so 608 a day and about
+# 18,240 a month against the $30 plan's 20,000. That is 91% — deliberately
+# close, because unspent credits buy nothing.
+#
+# DO NOT tighten the interval. On this window the arithmetic is unforgiving,
+# and `*/25` is a trap: cron reads it as "minutes divisible by 25", so it fires
+# at :00, :25 and :50 — three times an hour, exactly what */20 costs, not the
+# fifth less the name suggests.
+#
+#     */30   32 runs/day    608/day    18,240/month   fits, 91%
+#     */25   48 runs/day    912/day    27,360/month   over plan
+#     */20   48 runs/day    912/day    27,360/month   over plan
+#
+# It was */20 until 2026-08-10, back when a poll was 10 credits. Halving the
+# frequency is what paid for the extra markets, and the reasoning is that this
+# tool is used days out from a fixture: prices barely move between polls, so
+# the third look each hour was buying almost nothing, while more markets on the
+# same fixtures buy real board width.
+#
+# THE HEADROOM IS THIN AND THE CLIFF IS NEARER THAN THE FINALS:
+#
+#     11 keys (today)   19 cr/run    18,240/month    fits
+#     13 keys           21 cr/run    20,160/month    OVER
+#     15 keys (finals)  23 cr/run    22,080/month    OVER
+#
+# Two more live tennis tournaments is enough to tip it, and tennis adds keys
+# without warning. Run `books.py --sports` (free) at the start of each month.
+# When it goes over, trim SPORT_MARKETS — WNBA is the first to cut (4 books,
+# 5 fixtures, no crossing seen), then AFL totals (3 books on 3 of 9 games).
+# Dropping the MMA key saves 1 and loses little: no spreads, one totals price
+# across 44 fixtures.
 #
 # Nothing is sent unless a market crosses. The same fixture is suppressed for
 # six hours. Failed scans are logged, and only alert after three in a row.
@@ -21,6 +56,4 @@
 SHELL=/bin/zsh
 PATH=/usr/local/bin:/usr/bin:/bin
 
-40 6    * * *   cd /Users/rijulkhunger/Downloads/arb-tool && /usr/local/bin/python3 alert.py >> alert.log 2>&1
-*/20 7-22 * * * cd /Users/rijulkhunger/Downloads/arb-tool && /usr/local/bin/python3 alert.py >> alert.log 2>&1
-0 23    * * *   cd /Users/rijulkhunger/Downloads/arb-tool && /usr/local/bin/python3 alert.py >> alert.log 2>&1
+*/30 * * * * cd /Users/rijulkhunger/Downloads/arb-tool && /usr/local/bin/python3 alert.py >> alert.log 2>&1
