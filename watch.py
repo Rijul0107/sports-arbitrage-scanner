@@ -147,6 +147,13 @@ def print_card(opp: Opportunity, cfg):
         print(f"      {C.CYAN}{C.B}{leg.book}{C.R}   back {C.B}{o}{C.R} @ {C.B}{leg.odds:.2f}{C.R}")
         print(f"      {C.GREEN}{C.B}STAKE {money(leg.stake)}{C.R}   "
               f"{C.GREY}returns {money(leg.returns)}{C.R}")
+        # This leg's own quote age and the rest of the board on the same
+        # outcome. The matrix above shows every price, but the slip is what
+        # gets read before placing, and a leg standing alone or on a minutes-
+        # old capture is worth seeing without looking back up.
+        ctx = opp.leg_context(o)
+        if ctx is not None:
+            print(f"      {C.GREY}{ctx.describe()}{C.R}")
     print(f"{C.GREY}{rule('-')}{C.R}")
     print(f"  Outlay {money(arb.total_stake)}   "
           f"Returns {money(arb.worst_return)}–{money(arb.best_return)}   "

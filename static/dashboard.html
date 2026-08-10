@@ -173,6 +173,8 @@
   .leg .pickline{font-size:14px;margin-bottom:10px}
   .leg .stake{font-family:var(--mono);font-size:29px;font-weight:700;color:var(--series);line-height:1}
   .leg .ret{font-family:var(--mono);font-size:11px;color:var(--muted);margin-top:4px}
+  .leg .ctx{font-family:var(--mono);font-size:10px;color:var(--muted);margin-top:7px;
+            line-height:1.45;border-top:1px solid var(--line);padding-top:6px}
 
   .totals{display:flex;gap:22px;flex-wrap:wrap;margin-top:12px;padding:12px 14px;
           background:var(--felt-dark);border-radius:3px;font-family:var(--mono)}
@@ -598,6 +600,34 @@ function oddsHTML(g){
   return h + `</tbody></table>`;
 }
 
+/* ---------- what the rest of the board says about one leg ---------- */
+// Mirrors scan.py's LegContext. Derived here from the odds and ages already on
+// screen rather than sent in the payload, for the same reason margins are not
+// sent: a second copy of a fact can drift from the first.
+//
+// Reported, never used to hide a row. A price clear of the field is usually a
+// line the book has not updated rather than free money, but that judgement is
+// made in the app against the live board.
+function legContext(g, outcome, book){
+  const age = (g.ages && g.ages[book] != null) ? g.ages[book] : null;
+  const rivals = [];
+  for(const b in (g.odds||{})){
+    if(b === book) continue;
+    const p = g.odds[b] && g.odds[b][outcome];
+    // Same floor as bestOdds(): 1.00 returns the stake and is not a market,
+    // so it must not read as a rival quote.
+    if(p && p > 1.0) rivals.push([b, p]);
+  }
+  rivals.sort((x,y) => y[1] - x[1]);
+  const when = age === null ? 'age unknown' : `quoted ${Math.round(age)}s ago`;
+  if(!rivals.length) return `${when} · no other book quotes this`;
+  if(rivals.length === 1)
+    return `${when} · 1 other quotes ${rivals[0][1].toFixed(2)} (${rivals[0][0]})`;
+  const ps = rivals.map(r => r[1]);
+  return `${when} · ${rivals.length} others quote ${Math.min(...ps).toFixed(2)}`
+       + `–${Math.max(...ps).toFixed(2)}, best ${rivals[0][0]} ${rivals[0][1].toFixed(2)}`;
+}
+
 /* ---------- betting slip ---------- */
 function slipHTML(g){
   const {top:p, alloc:a, placeable} = play(g);
@@ -631,6 +661,7 @@ function slipHTML(g){
       <div class="pickline">Back <b>${esc(l.o)}</b> @ <b>${l.odds.toFixed(2)}</b></div>
       <div class="stake">${money(a.stakes[l.i])}</div>
       <div class="ret">returns ${money(a.rets[l.i])}</div>
+      <div class="ctx">${esc(legContext(g, l.o, l.book))}</div>
     </div>`;
   });
   h += `</div><div class="totals">

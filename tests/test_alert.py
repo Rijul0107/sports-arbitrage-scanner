@@ -10,7 +10,7 @@ from types import SimpleNamespace
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 import config, alert
-from arbtool.scan import assess_event
+from arbtool.scan import Opportunity, assess_event
 from watch import demo_events
 
 
@@ -386,6 +386,93 @@ class TestMessage(unittest.TestCase):
         read the other, on a phone, while both prices move."""
         hits = playable()
         self.assertEqual(len(alert.build_messages(hits * 3, config)), len(hits) * 3)
+
+
+class TestLegContext(unittest.TestCase):
+    """Age of each staked leg, and what the rest of the board says about it.
+
+    Neither figure changes the maths. Both decide whether the crossing is real
+    money or a quote a book forgot to update, and neither was on the alert
+    before: the message named two prices with no indication that one of them
+    was the only quote on the board, or four minutes old inside an event that
+    passed the freshest-book staleness gate."""
+
+    def _opp(self, odds, ages, staked_book="A", outcome="Home"):
+        """An Opportunity with a known board, staked on a known book."""
+        from arbtool.core import Leg
+        analysis = SimpleNamespace(book_odds=odds, outcomes=sorted(odds["A"]))
+        legs = {outcome: Leg(outcome=outcome, book=staked_book,
+                             odds=odds[staked_book][outcome], stake=100.0)}
+        return Opportunity(
+            event_id="e1", sport_key="k", sport_title="S",
+            home="Home", away="Away", commence_time="", minutes_to_start=60,
+            ages=ages, analysis=analysis,
+            arb=SimpleNamespace(legs=legs))
+
+    def test_age_is_the_staked_book_not_the_freshest(self):
+        """staleness_seconds() gates on max(updates) — the freshest book in the
+        event — so a leg can be minutes old inside an event that passed. The
+        context line must report the age of the price actually being staked."""
+        opp = self._opp(
+            odds={"A": {"Home": 3.60, "Away": 1.40}, "B": {"Home": 3.10, "Away": 1.45}},
+            ages={"A": 240.0, "B": 3.0})
+        ctx = opp.leg_context("Home")
+        self.assertEqual(ctx.age, 240.0)
+        self.assertIn("quoted 240s ago", ctx.describe())
+        self.assertNotIn("3s ago", ctx.describe())
+
+    def test_a_leg_no_other_book_quotes_says_so(self):
+        """The extreme outlier: nothing to corroborate against, so the whole
+        edge rests on one price being right. Must be stated, not inferred from
+        an absent comparison."""
+        opp = self._opp(
+            odds={"A": {"Home": 3.60, "Away": 1.40}, "B": {"Away": 1.45}},
+            ages={"A": 8.0, "B": 8.0})
+        ctx = opp.leg_context("Home")
+        self.assertTrue(ctx.alone)
+        self.assertIsNone(ctx.next_best)
+        self.assertIn("no other book quotes this", ctx.describe())
+
+    def test_rivals_report_range_and_best(self):
+        """The MLB case: PointsBet 3.60 against a field of 2.85-3.11, where all
+        four crossing pairings ran through that one book. The range is what
+        shows a lone outlier for what it is."""
+        opp = self._opp(
+            odds={"A": {"Home": 3.60, "Away": 1.40},
+                  "B": {"Home": 3.11, "Away": 1.42},
+                  "C": {"Home": 2.85, "Away": 1.44},
+                  "D": {"Home": 3.02, "Away": 1.43}},
+            ages={"A": 12.0, "B": 5.0, "C": 5.0, "D": 5.0})
+        ctx = opp.leg_context("Home")
+        self.assertEqual(ctx.next_best, ("B", 3.11))
+        self.assertEqual([b for b, _ in ctx.rivals], ["B", "D", "C"])
+        self.assertIn("3 others quote 2.85–3.11, best B 3.11", ctx.describe())
+
+    def test_a_price_of_one_is_not_a_rival(self):
+        """1.00 returns the stake and is not a real market. Counting it as a
+        rival would make a genuinely lone price look corroborated, which is the
+        error this line exists to prevent."""
+        opp = self._opp(
+            odds={"A": {"Home": 3.60, "Away": 1.40}, "B": {"Home": 1.00, "Away": 1.45}},
+            ages={"A": 8.0, "B": 8.0})
+        self.assertTrue(opp.leg_context("Home").alone)
+
+    def test_missing_age_is_stated_not_silently_dropped(self):
+        opp = self._opp(
+            odds={"A": {"Home": 3.60, "Away": 1.40}, "B": {"Home": 3.10, "Away": 1.45}},
+            ages={"A": None, "B": 4.0})
+        self.assertIn("age unknown", opp.leg_context("Home").describe())
+
+    def test_every_staked_leg_carries_its_context_into_the_message(self):
+        """The alert is the surface actually read, so the check block must carry
+        the age and the field for both legs — not just be available on the
+        object."""
+        hits = playable()
+        self.assertTrue(hits, "demo fixtures produced no playable arbitrage")
+        for opp in hits:
+            msg = alert.format_hit(opp, config)
+            for outcome in opp.arb.outcomes:
+                self.assertIn(alert.e(opp.leg_context(outcome).describe()), msg)
 
     def test_stakes_are_whole_dollars_with_no_cents(self):
         """allocate() rounds to STAKE_INCREMENT, so the cents are always .00 —

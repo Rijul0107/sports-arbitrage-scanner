@@ -9,12 +9,61 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
-from typing import Dict, List, Optional, Sequence
+from typing import Dict, List, Optional, Sequence, Tuple
 
 from .api import OddsAPI, is_in_play, minutes_to_start, parse_iso, staleness_seconds
 from .core import Arb, allocate, apply_stake_limits
 from .lines import submarkets
 from .pairs import GameAnalysis, analyse_game
+
+
+@dataclass(frozen=True)
+class LegContext:
+    """What the rest of the board says about one leg of an arbitrage.
+
+    Two facts decide whether a crossing is real money or a quote the book
+    forgot to update, and neither of them appears anywhere in the arbitrage
+    maths: how old this book's price is, and whether any other book agrees
+    with it. A price well clear of every rival is the signature of a stale
+    line, and four pairings that all run through one outlying book are one
+    price wearing four hats, not four confirmations.
+
+    This reports and does not filter. Suppressing on age or on distance from
+    the field would silently drop the exact case the owner wants to see and
+    check in the app; a dropped alert is indistinguishable from a quiet
+    board, which is how a whole missing bookmaker hid once before."""
+    outcome: str
+    book: str
+    odds: float
+    age: Optional[float]                     # seconds since this book's capture
+    rivals: List[Tuple[str, float]]          # other books on this outcome, best first
+
+    @property
+    def next_best(self) -> Optional[Tuple[str, float]]:
+        return self.rivals[0] if self.rivals else None
+
+    @property
+    def alone(self) -> bool:
+        """No other configured book quotes this outcome at all.
+
+        The extreme of the outlier case: there is nothing to corroborate
+        against, so the edge rests entirely on one price being right."""
+        return not self.rivals
+
+    def describe(self) -> str:
+        """One plain-text line of context, for a phone screen or a card.
+
+        Plain text rather than HTML so the Telegram and terminal surfaces
+        cannot drift apart in what they report, only in how they mark it up."""
+        when = "age unknown" if self.age is None else f"quoted {self.age:.0f}s ago"
+        if self.alone:
+            return f"{when} · no other book quotes this"
+        prices = [p for _, p in self.rivals]
+        top_book, top_price = self.rivals[0]
+        if len(self.rivals) == 1:
+            return f"{when} · 1 other quotes {top_price:.2f} ({top_book})"
+        return (f"{when} · {len(self.rivals)} others quote "
+                f"{min(prices):.2f}–{max(prices):.2f}, best {top_book} {top_price:.2f}")
 
 
 @dataclass
@@ -91,6 +140,29 @@ class Opportunity:
     def oldest_quote(self) -> float:
         vals = [a for a in self.ages.values() if a is not None]
         return max(vals) if vals else 0.0
+
+    def leg_context(self, outcome: str) -> Optional[LegContext]:
+        """Age and rival prices for the leg staked on `outcome`.
+
+        Age is that leg's own book, not the event's. staleness_seconds() gates
+        on the freshest book in the event, so a leg can be minutes old inside
+        an event that passed the gate — this is the number that describes the
+        price actually being staked."""
+        if self.arb is None or outcome not in self.arb.legs:
+            return None
+        leg = self.arb.legs[outcome]
+        rivals = []
+        for book, prices in self.analysis.book_odds.items():
+            if book == leg.book:
+                continue
+            price = prices.get(outcome)
+            # Same floor as best_odds_per_outcome: 1.00 returns the stake and
+            # is not a real market, so it must not read as a rival quote.
+            if price and price > 1.0:
+                rivals.append((book, float(price)))
+        rivals.sort(key=lambda bp: -bp[1])
+        return LegContext(outcome=outcome, book=leg.book, odds=leg.odds,
+                          age=self.ages.get(leg.book), rivals=rivals)
 
     def to_dict(self) -> dict:
         """The shape the dashboard consumes. Only odds and ages are sent —

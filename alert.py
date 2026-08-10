@@ -433,6 +433,13 @@ def format_hit(opp, cfg) -> str:
     for o in order:
         leg = arb.legs[o]
         lines.append(f"    {e(leg.book)} — {e(o)} showing <b>{leg.odds:.2f}</b> or better")
+        # The age of this leg's own quote, and what every other book says about
+        # the same outcome. Reported, never used to suppress: a price clear of
+        # the field is usually stale rather than generous, but that call is
+        # made in the app against the live board, not here against a snapshot.
+        ctx = opp.leg_context(o)
+        if ctx is not None:
+            lines.append(f"      <i>{e(ctx.describe())}</i>")
     lines.append("<i>If either price has shortened, the arbitrage is gone. "
                  "Do not place a leg on the strength of this message alone.</i>")
     return "\n".join(lines)
