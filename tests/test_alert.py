@@ -170,7 +170,6 @@ class TestMessage(unittest.TestCase):
         # longer pay identically and only this figure is actually guaranteed.
         self.assertIn(f"${arb.worst_profit:,.2f} guaranteed", msg)
         self.assertIn("PLACE FIRST", msg)
-        self.assertIn("unhedged", msg)          # the one-leg risk must stay stated
 
     def test_summary_line_shape_and_figures(self):
         """The summary line reads returns, then money in, then what is locked in.

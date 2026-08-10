@@ -365,9 +365,13 @@ def format_hit(opp, cfg) -> str:
                  f"money put in {whole(arb.total_stake)}, "
                  f"<b>guaranteed {money(arb.worst_profit)} @ "
                  f"{arb.realised_margin * 100:.2f}%</b>")
-    # The exposure is one leg, not the outlay. Every surface says so; so does this.
-    lines.append(f"<i>If leg 2 misses you are unhedged on "
-                 f"{money(arb.legs[first].stake)} — that, not the outlay, is the risk.</i>")
+    # The one-leg exposure line was removed at the owner's request on
+    # 2026-08-10. It is not gone from the tool: the terminal cards, the
+    # dashboard and the README still state it. The judgement here is that a
+    # standing warning repeated on every alert stops being read, and the
+    # CHECK BEFORE STAKING block below already carries the operative
+    # instruction — confirm both prices, and do not place one leg on the
+    # strength of the message.
 
     # Named prices, not a general reminder. The whole edge usually rests on one
     # book being out of line with the rest, and that is exactly the price most

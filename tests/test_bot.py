@@ -71,7 +71,6 @@ class TestRestake(unittest.TestCase):
         out = bot.restake(ITEM, 4000.0, config)
         self.assertIn("CHECK BEFORE STAKING", out)
         self.assertIn("not fresh ones", out)
-        self.assertIn("unhedged", out)
 
     def test_unrebuildable_market_says_so(self):
         broken = dict(ITEM, legs=[
@@ -199,7 +198,6 @@ class TestQuote(unittest.TestCase):
         out = bot.quote(dict(BOARD_ITEM), "bet365",
                         {"Sydney Roosters": 2.40}, config)
         self.assertIn("your reading, not our feed", out)
-        self.assertIn("unhedged", out)
 
     def test_book_name_is_html_escaped(self):
         out = bot.quote(dict(BOARD_ITEM), "<b>x", {"Sydney Roosters": 2.15}, config)

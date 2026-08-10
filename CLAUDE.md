@@ -382,12 +382,23 @@ whoever advances, some settle after one set. If two books differ, a retirement
 turns a hedged position into a one-sided bet. This is a real risk specific to
 tennis and is not modelled in the code; it is documented in the README.
 
-**Bet365 AU** is on The Odds API but only on paid plans, and only h2h/spreads/
-totals for AFL and NRL.
+**Bet365 AU** is listed on The Odds API as paid-plans-only, h2h/spreads/totals,
+AFL and NRL — but it does not deliver. Requested by name on the paid key on
+2026-08-09 it returned 8 NRL and 7 AFL fixtures with zero Bet365 prices on any
+of them. It is not a tier problem; all paid tiers list identical bookmaker
+access. Do not re-add it on the strength of the documentation.
 
 **The real exposure is one leg, not the stake.** If leg one fills and leg two
-has moved, the user holds an unhedged bet worth roughly half the total. Every
-UI surface states this. Keep it there.
+has moved, the user holds an unhedged bet worth roughly half the total. The
+terminal cards, the dashboard and the README state this.
+
+The Telegram alert **deliberately does not**, at the owner's request
+(2026-08-10). The reasoning: a fixed warning repeated on every single message
+is skimmed past within a week, and the alert already carries the operative
+instruction in its CHECK BEFORE STAKING block — confirm both prices in both
+apps, and do not place one leg on the strength of the message. `core.py` still
+exposes `unhedged_exposure()` and `tests/test_core.py` still guards it, so the
+figure remains available to any surface that wants it.
 
 ---
 

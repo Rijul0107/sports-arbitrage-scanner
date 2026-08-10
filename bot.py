@@ -376,7 +376,6 @@ def _slip(arb, item: dict) -> str:
         f"money put in {whole(arb.total_stake)}, "
         f"<b>guaranteed {money(arb.worst_profit)} @ "
         f"{arb.realised_margin * 100:.2f}%</b>",
-        f"<i>If leg 2 misses you are unhedged on {money(arb.legs[first].stake)}.</i>",
         "",
         "<b>CHECK BEFORE STAKING</b> — these are the alert's prices, not fresh ones:",
     ]
@@ -437,7 +436,6 @@ def restake(item: dict, total: float, cfg) -> str:
         f"money put in {whole(arb.total_stake)}, "
         f"<b>guaranteed {money(arb.worst_profit)} @ "
         f"{arb.realised_margin * 100:.2f}%</b>",
-        f"<i>If leg 2 misses you are unhedged on {money(arb.legs[first].stake)}.</i>",
         "",
         "<b>CHECK BEFORE STAKING</b> — these are the alert's prices, not fresh ones:",
     ]
