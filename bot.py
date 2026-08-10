@@ -554,14 +554,31 @@ def poll(token: str, cfg, once: bool = False) -> int:
     allowed = set(str(c) for c in cfg.TELEGRAM_CHAT_IDS)
     register_commands(token)
     print(f"Listening. {len(allowed)} recipient(s). Ctrl-C to stop.")
+    last_ok = 0.0                  # when getUpdates last actually returned
     while True:
-        # Stamped before the poll, not after: a poll that blocks or hangs is
-        # exactly the failure this is meant to catch, and stamping afterwards
+        # Two stamps, because they catch different deaths.
+        #
+        # `at` goes down before the poll, not after: a poll that blocks or hangs
+        # is exactly the failure this is meant to catch, and stamping afterwards
         # would keep the file fresh only while things already worked.
-        _write_json(ALIVE_FILE, {"at": time.time()})
+        #
+        # `ok_at` goes down only after a call that actually returned. Without it
+        # a crash loop looks perfectly healthy — systemd restarts the process,
+        # the process stamps `at` and dies again, so the file stays fresh while
+        # nothing is ever served. That is not hypothetical: this listener spent
+        # 24 hours restarting every 32 seconds with a fresh heartbeat the whole
+        # time, and nothing reported it.
+        _write_json(ALIVE_FILE, {"at": time.time(), "ok_at": last_ok})
         try:
+            # The socket deadline must outlive the long poll it is waiting on.
+            # Telegram holds the connection for POLL_TIMEOUT seconds by design,
+            # so a shorter socket timeout expires on every cycle — which is
+            # exactly what happened: _call's old hardcoded 20s against a 50s
+            # long poll meant this listener never once completed a getUpdates.
+            # The margin covers TLS setup and reading the response body.
             r = _call(token, "getUpdates",
-                      {"offset": offset, "timeout": POLL_TIMEOUT})
+                      {"offset": offset, "timeout": POLL_TIMEOUT},
+                      timeout=POLL_TIMEOUT + 15)
         except RuntimeError as ex:
             # Network blips are expected on a long-lived connection.
             print(f"  getUpdates: {ex}")
@@ -570,6 +587,7 @@ def poll(token: str, cfg, once: bool = False) -> int:
                 return 1
             continue
 
+        last_ok = time.time()
         for u in r.get("result", []):
             offset = max(offset, u.get("update_id", 0) + 1)
             msg = u.get("message") or {}

@@ -202,6 +202,84 @@ class TestScanWindow(unittest.TestCase):
             "deploy/crontab.txt, which say it does not.")
 
 
+class TestLongPollTimeout(unittest.TestCase):
+    """The socket deadline must outlive the long poll it waits on.
+
+    getUpdates deliberately holds the connection open for its own `timeout`
+    seconds. _call's default socket deadline was 20s against bot.POLL_TIMEOUT
+    of 50, so every cycle expired, raised a bare TimeoutError that neither
+    except clause caught, and killed the process. Under Restart=always that is
+    a crash loop: 685 restarts in 24 hours, and the listener never once
+    completed a poll.
+    """
+    def test_call_accepts_a_timeout(self):
+        import inspect
+        self.assertIn("timeout", inspect.signature(alert._call).parameters)
+
+    def test_bot_asks_for_longer_than_its_long_poll(self):
+        import bot, inspect, re
+        src = inspect.getsource(bot.poll)
+        m = re.search(r"timeout=POLL_TIMEOUT\s*\+\s*(\d+)", src)
+        self.assertIsNotNone(
+            m, "bot.poll must pass a socket timeout derived from POLL_TIMEOUT")
+        self.assertGreaterEqual(
+            int(m.group(1)), 5,
+            "needs margin over the long poll for TLS setup and the response body")
+
+    def test_read_timeout_becomes_a_retryable_error(self):
+        """bot.poll already handles RuntimeError by sleeping and retrying. A
+        bare TimeoutError escapes that and takes the process with it."""
+        import urllib.request
+        real = urllib.request.urlopen
+        urllib.request.urlopen = lambda *a, **k: (_ for _ in ()).throw(TimeoutError())
+        try:
+            with self.assertRaises(RuntimeError):
+                alert._call("token", "getUpdates", {}, timeout=1)
+        finally:
+            urllib.request.urlopen = real
+
+
+class TestCrashLoopIsVisible(unittest.TestCase):
+    """A crash loop must not look healthy.
+
+    The heartbeat is stamped before each poll so a hang is caught. But under
+    Restart=always a process that dies mid-poll restarts, stamps again, and
+    dies again — keeping the file perfectly fresh while serving nobody. That
+    ran for 24 hours unreported.
+    """
+    def setUp(self):
+        self.backup = (alert.ALIVE_FILE.read_bytes()
+                       if alert.ALIVE_FILE.exists() else None)
+        alert.BOT_WARNED_FILE.unlink(missing_ok=True)
+
+    def tearDown(self):
+        alert.ALIVE_FILE.unlink(missing_ok=True)
+        alert.BOT_WARNED_FILE.unlink(missing_ok=True)
+        if self.backup is not None:
+            alert.ALIVE_FILE.write_bytes(self.backup)
+
+    def test_fresh_heartbeat_with_stale_success_warns(self):
+        now = time.time()
+        alert.ALIVE_FILE.write_text(json.dumps({
+            "at": now - 5,                                    # just restarted
+            "ok_at": now - (alert.BOT_STALE_MIN + 10) * 60,   # never succeeds
+        }))
+        msg = alert.check_bot_alive(now)
+        self.assertIsNotNone(msg, "a crash loop must be reported")
+        self.assertIn("stuck", msg)
+
+    def test_both_fresh_is_silent(self):
+        now = time.time()
+        alert.ALIVE_FILE.write_text(json.dumps({"at": now, "ok_at": now}))
+        self.assertIsNone(alert.check_bot_alive(now))
+
+    def test_old_heartbeat_without_ok_at_does_not_cry_wolf(self):
+        """First scan after the upgrade reads a file written by the old bot."""
+        now = time.time()
+        alert.ALIVE_FILE.write_text(json.dumps({"at": now}))
+        self.assertIsNone(alert.check_bot_alive(now))
+
+
 class TestVerificationNote(unittest.TestCase):
     def test_names_each_price_to_check(self):
         """A general 'confirm before staking' is easy to skim past. The message

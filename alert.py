@@ -186,16 +186,42 @@ def check_bot_alive(now: float = None):
     Only warns once the file has existed at least once — a machine that has
     never run bot.py is not a fault, and warning about it would train the user
     to ignore the message that matters. Warns at most once per cooldown, so a
-    listener that stays down does not turn every scan into a notification."""
+    listener that stays down does not turn every scan into a notification.
+
+    Two clocks, because a listener dies in two different ways. `at` is stamped
+    before each poll and going stale means the process is gone or wedged.
+    `ok_at` is stamped only after a call that actually returned, and going
+    stale means the process is running and achieving nothing — a crash loop
+    under `Restart=always` keeps `at` perfectly fresh while serving nobody.
+    Checking only `at` missed exactly that for 24 hours."""
     now = now or time.time()
     beat = _read_json(ALIVE_FILE, None)
     if not beat:
         return None
     quiet_min = (now - beat.get("at", 0)) / 60
-    if quiet_min < BOT_STALE_MIN:
+    # A listener written before ok_at existed has no such key. Treat that as
+    # "cannot tell" rather than "broken", or the first scan after an upgrade
+    # cries wolf about a bot that is fine.
+    ok_at = beat.get("ok_at")
+    stalled_min = (now - ok_at) / 60 if ok_at else None
+    if quiet_min < BOT_STALE_MIN and (stalled_min is None
+                                      or stalled_min < BOT_STALE_MIN):
         if BOT_WARNED_FILE.exists():
             BOT_WARNED_FILE.unlink(missing_ok=True)
         return None
+    if quiet_min < BOT_STALE_MIN and stalled_min is not None:
+        # Process alive, work not happening. Name the distinction, because the
+        # fix is different: this one is in the log, not in `systemctl status`.
+        warned = _read_json(BOT_WARNED_FILE, {}).get("at", 0)
+        if now - warned < BOT_WARN_COOLDOWN_H * 3600:
+            return None
+        _write_json(BOT_WARNED_FILE, {"at": now})
+        return ("<b>The reply bot is running but stuck.</b>\n"
+                f"It has not completed a poll for {stalled_min:.0f} minutes, "
+                f"though the process is alive — most likely restarting in a "
+                f"loop. Scans and alerts are unaffected. Check "
+                f"<code>bot.log</code>, not <code>systemctl status</code>: a "
+                f"crash loop looks healthy from the outside.")
     warned = _read_json(BOT_WARNED_FILE, {}).get("at", 0)
     if now - warned < BOT_WARN_COOLDOWN_H * 3600:
         return None
@@ -255,13 +281,21 @@ def is_fresh(opp, seen: dict, now: float) -> bool:
 # Telegram
 # ---------------------------------------------------------------------------
 
-def _call(token: str, method: str, params: dict) -> dict:
+def _call(token: str, method: str, params: dict, timeout: float = 20) -> dict:
+    """One Telegram API call.
+
+    timeout is the socket read deadline and MUST outlive whatever the request
+    itself asks Telegram to wait. getUpdates long-polls: it deliberately holds
+    the connection open for its own `timeout` seconds before answering, so a
+    socket deadline shorter than that expires every single cycle. Callers that
+    long-poll pass their own value; see bot.poll().
+    """
     url = API.format(token=token, method=method)
     data = urllib.parse.urlencode(params).encode()
     req = urllib.request.Request(url, data=data,
                                  headers={"User-Agent": "arb-desk/1.0"})
     try:
-        with urllib.request.urlopen(req, timeout=20) as resp:
+        with urllib.request.urlopen(req, timeout=timeout) as resp:
             return json.loads(resp.read().decode("utf-8"))
     except urllib.error.HTTPError as e:
         detail = e.read().decode("utf-8", "replace")[:300]
@@ -269,6 +303,13 @@ def _call(token: str, method: str, params: dict) -> dict:
         raise RuntimeError(f"Telegram HTTP {e.code}: {detail}") from e
     except urllib.error.URLError as e:
         raise RuntimeError(f"Telegram unreachable: {e.reason}") from e
+    except TimeoutError as e:
+        # A read timeout after the connection is established raises a bare
+        # TimeoutError, NOT a URLError, so it escaped both clauses above and
+        # killed the process. bot.py's poll loop already handles RuntimeError
+        # by sleeping and retrying, which is the right response to a slow
+        # network; crashing out of the listener is not.
+        raise RuntimeError(f"Telegram timed out after {timeout:.0f}s") from e
 
 
 def send(token: str, chat_ids, text: str) -> int:
