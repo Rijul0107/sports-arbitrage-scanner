@@ -452,73 +452,44 @@ wrong. A test that passes both before and after your change has not tested it.
 ## 10. Credit economics
 
 The plan is the $30 tier: **20,000 credits a month.** Cost is
-`[markets] × [regions]` per sport key that returns games; empty responses are
-free, and `/sports` and `/events` cost nothing at all.
+`[markets] × [regions]` per sport key that returns games. Empty responses are
+free; `/sports` and `/events` cost nothing at all.
 
-Markets are per sport in `config.SPORT_MARKETS`, so a poll is not one credit
-per key any more:
+**`python3 books.py --sports` prices the next poll for free, and is the only
+number worth trusting** — the active key count moves weekly with tennis, and it
+reads the plan balance from the response header rather than assuming a tier.
+The per-sport market lists and the full arithmetic live in `config.py` and
+`deploy/crontab.txt`, next to the settings they describe.
 
-| Sport key | Markets | Credits |
-|---|---|---|
-| `rugbyleague_nrl` | h2h, spreads, totals | 3 |
-| `aussierules_afl` | h2h, spreads, totals | 3 |
-| `baseball_mlb` | h2h, spreads, totals | 3 |
-| `basketball_wnba` | h2h, spreads, totals | 3 |
-| `icehockey_nhl` | totals | 1 |
-| every other active key | h2h | 1 each |
-
-`python3 books.py --sports` prices the next poll for free and is the only
-number worth trusting, because the active key count moves weekly with tennis
-tournaments. Measured 2026-08-10: **11 keys, 19 credits a run**. The cron is
-`*/30` all day and `alert.py` trims to `config.SCAN_WINDOW_START/END`
-(06:40–22:40 Sydney) itself, so 32 runs land in-window: **608 a day, about
-18,240 a month — 91% of plan.** Deliberately close; unspent credits buy
+Measured 2026-08-10: **11 keys, 19 credits a run, 32 in-window runs a day —
+about 18,240 a month, 91% of plan.** Deliberately close; unspent credits buy
 nothing.
 
-**The headroom is thin, and the cliff is nearer than the finals.** Two more
-live tennis tournaments tips it, and tennis adds keys without warning:
+Three things that are not obvious and have each cost something:
 
-| Active keys | Credits/run | Per month | |
-|---|---|---|---|
-| 11 (2026-08-10) | 19 | 18,240 | fits |
-| 13 | 21 | 20,160 | over |
-| 15 (finals) | 23 | 22,080 | over |
+- **`*/25` is not "every 25 minutes".** Cron reads `*/n` on the minute field as
+  "minutes 0–59 divisible by n", so it fires at :00, :25 and :50 — three times
+  an hour, costing exactly what `*/20` costs. They coincide only when `n`
+  divides 60. Anything that counts runs must model this, which is why
+  `books.py::runs_per_day` walks the day a minute at a time.
+- **The window lives in `config.SCAN_WINDOW_START/END`, not in cron**, so
+  daylight saving is the timezone database's problem and `books.py` can price a
+  month against the same hours `alert.py` enforces. Two copies of the hours is
+  how a credit estimate quietly stops describing what is being spent.
+- **The headroom is thin and the cliff is near.** 13 active keys puts the
+  current config over plan — two more live tennis tournaments does it. Run
+  `books.py --sports` at the start of each month; when it goes over, trim
+  `SPORT_MARKETS` (WNBA first, then AFL totals). Guarded by
+  `tests/test_alert.py::TestScanWindow`, which derives the cost from
+  `SPORT_MARKETS` rather than a written-down number and fails before the month
+  does.
 
-Run `books.py --sports` (free) at the start of each month. When it goes over,
-trim `SPORT_MARKETS`: WNBA first (4 books, 5 fixtures, no crossing observed),
-then AFL totals (3 books on 3 of 9 games). Both tripwires are tested in
-`tests/test_alert.py::TestScanWindow`, which derives the cost from
-`SPORT_MARKETS` rather than a written-down number.
+Before adding anything, multiply: one more market on one polled sport is +32
+credits a day; one more market across all keys is +10,560 a month.
 
-The window lives in `config.py`, not in cron, so daylight saving is the
-timezone database's problem. `books.py` counts the billable runs from it by
-walking the day a minute at a time — cron fires on the wall clock, so `*/30`
-hits :00 and :30 and misses a window edge at :40 entirely, which counting hours
-and dividing gets wrong.
-
-Tightening the interval does not fit, and **`*/25` is a trap**: cron reads
-`*/n` on the minute field as "minutes 0–59 divisible by n", not "every n
-minutes rolling". `*/25` fires at :00, :25 and :50 — three times an hour with a
-ten-minute gap at the top, costing exactly what `*/20` costs rather than the
-fifth less the name implies. They coincide only when `n` divides 60.
-
-| Interval | Runs/day | Per day | Per month | |
-|---|---|---|---|---|
-| `*/30` | 32 | 608 | 18,240 | fits |
-| `*/25` | 48 | 912 | 27,360 | over |
-| `*/20` | 48 | 912 | 27,360 | over |
-
-That headroom is the budget for anything new. Before adding a market or a key,
-multiply: one more market on one already-polled sport is +32 credits a day, and
-one more market across all keys is +11 a run, +10,560 a month. Blanket
-`h2h,spreads,totals` everywhere would be 33 a run and ~31,700 a month — well
-over the plan. It was `*/20` until 2026-08-10; halving the frequency is what
-paid for spreads and totals, on the reasoning that prices days out from a
-fixture barely move between polls.
-
-The productive window is the couple of hours before a fixture — books are
-actively repricing and disagreement is widest. That is *not* how this tool is
-used in practice, which is days out; size any advice against the real pattern.
+The productive window is the couple of hours before a fixture, when books are
+repricing and disagreement is widest. That is *not* how this tool is used —
+which is days out — so size any advice against the real pattern.
 
 If the plan is outgrown: RapidOddsAPI's $49/month tier gives 200,000 credits
 with deeper AU coverage, against The Odds API's $59 for 100,000. Their $149
