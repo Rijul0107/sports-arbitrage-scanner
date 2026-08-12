@@ -209,6 +209,14 @@ Earlier dashboard demo payload carried hand-written margins that did not match p
 
 `pair_matrix()` used to append `PairResult` even when `evaluate()` returned `None`, whose `margin_pct` is `-inf`. Terminal matrix rendered that as `-inf%` and counted it in "X of Y pairings work" denominator, while dashboard's `evaluatePair()` dropped it — so two engines disagreed about Y whenever book quoted only one side of market. Rare on head-to-head, routine on totals and spreads where books suspend one side. `pair_matrix()` now skips them. Guarded by `tests/test_pairs.py::TestUncoverablePairingsAreAbsent` and end to end by `tests/test_dual_engine.py`.
 
+### Gating on the theoretical margin, printing the realised one
+
+`MIN_MARGIN_PCT` used to be compared against `Opportunity.best_margin_pct`, which is `Arb.margin` — the pre-rounding figure. Every surface prints `Arb.realised_margin`, which is always the smaller of the two, so a floor of 0.5% produced alerts reading 0.47%. Read as the threshold being broken; it was the threshold measuring a different number than the one on screen.
+
+Filter now lives in `scan.is_playable(opp, cfg)`, reads `Opportunity.realised_margin_pct`, and is shared by `alert.py`, `watch.py` and `serve.py` through `result["playable"]` so the three cannot disagree about what clears. Guarded by `tests/test_server.py::TestPlayableGate`.
+
+Rounding loss is small at `TOTAL_STAKE = 1500` — under 0.07 percentage points on the demo boards — and grows as the stake falls, because the whole-dollar remainder is a larger share of a smaller position. Do not conclude from the demo gap that the distinction is cosmetic.
+
 ### `str.replace` with an empty match
 
 Not code bug but process one: patching this repo by computing slice between two `str.index()` calls silently produced empty string when first anchor appeared in CSS comment before second. `s.replace("", x)` inserts between every character and produced 102 MB file. Prefer Edit tool with unique anchors over programmatic string surgery.
@@ -272,8 +280,9 @@ Scripts read module-level constants; CLI flags override into `SimpleNamespace` c
 ```bash
 python3 tests/test_core.py        # 33 — arbitrage maths, staking, edge cases
 python3 tests/test_pairs.py       # 19 — pairwise matrix, depth, the arb/is_arb trap
-python3 tests/test_lines.py       # 21 — the sandwich guard and line grouping
-python3 tests/test_server.py      # 17 — server, payload shape, in-play exclusion
+python3 tests/test_lines.py       # 23 — the sandwich guard and line grouping
+python3 tests/test_server.py      # 21 — server, payload shape, in-play exclusion,
+                                  #      the playable gate
 python3 tests/test_alert.py       # 22 — Telegram suppression and formatting
 python3 tests/test_bot.py         # 42 — reply bot, restake
 python3 tests/test_dual_engine.py #  1 — browser engine v Python, 600+ boards

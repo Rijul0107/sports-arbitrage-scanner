@@ -6,7 +6,8 @@ from types import SimpleNamespace
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 import config, serve
-from arbtool.scan import scan, select_sports
+from arbtool.scan import scan, select_sports, assess_event, is_playable
+from watch import demo_events
 
 def mk_events():
     soon = (datetime.now(timezone.utc) + timedelta(minutes=47)).isoformat()
@@ -209,6 +210,54 @@ class TestServer(unittest.TestCase):
         except urllib.error.HTTPError as e:
             code = e.code
         self.assertEqual(code, 404)
+
+class TestPlayableGate(unittest.TestCase):
+    """MIN_MARGIN_PCT is measured on the number the alert actually prints.
+
+    Every surface quotes realised_margin — the post-rounding figure — because
+    that is the only one guaranteed. Gating on the theoretical margin instead
+    sent boards that cleared the floor in theory and then printed a percentage
+    below it, which is indistinguishable from the threshold not working.
+    """
+    def opps(self):
+        return [o for e in demo_events()
+                for o in assess_event(e, "rugbyleague_nrl", "NRL (demo)", config)]
+
+    def test_realised_never_exceeds_theoretical(self):
+        # Rounding down and handing the remainder to the worst leg can lift the
+        # floor but never above the un-rounded split, so this direction holds
+        # for every board. If it ever flips, allocate() is over-staking.
+        for o in self.opps():
+            if o.arb is None:
+                continue
+            self.assertLessEqual(o.realised_margin_pct, o.best_margin_pct + 1e-9,
+                                 f"{o.home} v {o.away}")
+
+    def test_board_below_the_floor_after_rounding_is_rejected(self):
+        staked = [o for o in self.opps() if o.arb is not None]
+        # Pick the board with the widest gap between the two figures, then set
+        # the floor between them: theoretical passes, realised does not.
+        o = max(staked, key=lambda x: x.best_margin_pct - x.realised_margin_pct)
+        gap = o.best_margin_pct - o.realised_margin_pct
+        self.assertGreater(gap, 0, "demo data has no rounding loss to test against")
+        floor = o.realised_margin_pct + gap / 2
+        cfg = SimpleNamespace(MIN_PROFIT=0.0, MIN_MARGIN_PCT=floor)
+        self.assertFalse(is_playable(o, cfg))
+        cfg.MIN_MARGIN_PCT = o.realised_margin_pct - gap / 2
+        self.assertTrue(is_playable(o, cfg))
+
+    def test_unstaked_opportunity_never_passes(self):
+        cfg = SimpleNamespace(MIN_PROFIT=0.0, MIN_MARGIN_PCT=-1e9)
+        for o in self.opps():
+            if o.arb is None:
+                self.assertEqual(o.realised_margin_pct, float("-inf"))
+                self.assertFalse(is_playable(o, cfg))
+
+    def test_shipped_floor_is_one_percent(self):
+        # The alert is meant to stay quiet below 1%. Guarded here so a config
+        # edit that relaxes it is a failing test rather than a surprise message.
+        self.assertGreaterEqual(config.MIN_MARGIN_PCT, 1.0)
+
 
 if __name__ == "__main__":
     unittest.main(verbosity=2)

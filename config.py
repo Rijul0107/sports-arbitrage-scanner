@@ -140,8 +140,10 @@ BOOKS = [
 # Money
 # ---------------------------------------------------------------------------
 
-# Total across both legs of a single arbitrage.
-TOTAL_STAKE = 2000.00
+# Total across both legs of a single arbitrage. Matches the dashboard's own
+# default stake input, so the alert and the browser quote the same position
+# for the same board — they disagreed while this said 2000.
+TOTAL_STAKE = 1500.00
 
 # Smallest stake a book will accept. Whole dollars keeps the numbers quick to
 # type under time pressure and avoids fat-finger errors.
@@ -151,8 +153,12 @@ STAKE_INCREMENT = 1.00
 # the exposure of an unfilled second leg.
 MIN_PROFIT = 10.00
 
-# Ignore anything thinner than this regardless of stake size.
-MIN_MARGIN_PCT = 0.5
+# Ignore anything thinner than this regardless of stake size. Measured on the
+# realised margin — the post-rounding figure every surface prints — so the
+# percentage in an alert is never below the number set here. Gating on the
+# theoretical margin instead would let a 1.0% board through and then print
+# 0.94%, which reads as the threshold being broken.
+MIN_MARGIN_PCT = 1.0
 
 # Commission charged on winnings, per bookmaker. Books absent here charge
 # nothing, which is every traditional Australian corporate.

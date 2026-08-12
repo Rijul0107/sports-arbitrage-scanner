@@ -93,6 +93,18 @@ class Opportunity:
         return self.analysis.best_margin_pct
 
     @property
+    def realised_margin_pct(self) -> float:
+        """The margin that survives whole-dollar rounding, as a percentage.
+
+        This is the figure the alert, the terminal card and the dashboard all
+        print, and it is never above best_margin_pct — rounding can only lower
+        the worst-paying leg. Anything gating on best_margin_pct therefore
+        admits boards that go out quoting a number below the threshold.
+
+        -inf when nothing is staked, so it can never pass a threshold test."""
+        return self.arb.realised_margin * 100 if self.arb else float("-inf")
+
+    @property
     def depth(self) -> int:
         return self.analysis.depth
 
@@ -309,6 +321,22 @@ def select_sports(api: OddsAPI, cfg) -> List[dict]:
             if s["key"] in keys or (prefixes and s["key"].startswith(prefixes))]
 
 
+def is_playable(opp: Opportunity, cfg) -> bool:
+    """Whether this opportunity is worth putting in front of the user.
+
+    Named rather than inlined because alert.py, watch.py and serve.py all read
+    the same `playable` list, and a threshold that means one thing in the
+    Telegram message and another on the dashboard is worse than no threshold.
+
+    All three tests are on post-rounding figures — worst_profit via .placeable,
+    then the cash floor, then realised_margin_pct. MIN_MARGIN_PCT compared
+    against the theoretical margin would pass boards whose printed percentage
+    is below it, which is exactly the complaint a threshold exists to answer."""
+    return (opp.placeable
+            and opp.profit >= cfg.MIN_PROFIT
+            and opp.realised_margin_pct >= cfg.MIN_MARGIN_PCT)
+
+
 def scan(api: OddsAPI, cfg, sports: Optional[List[dict]] = None) -> Dict:
     """One full poll. Returns opportunities sorted by what they pay."""
     if sports is None:
@@ -327,10 +355,7 @@ def scan(api: OddsAPI, cfg, sports: Optional[List[dict]] = None) -> Dict:
     # the profit is worth less than a 1.5% edge that actually pays.
     opportunities.sort(key=lambda o: (-o.profit, -o.best_margin_pct))
 
-    playable = [o for o in opportunities
-                if o.placeable
-                and o.profit >= cfg.MIN_PROFIT
-                and o.best_margin_pct >= cfg.MIN_MARGIN_PCT]
+    playable = [o for o in opportunities if is_playable(o, cfg)]
 
     return {
         "opportunities": opportunities,
