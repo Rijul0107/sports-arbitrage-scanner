@@ -53,6 +53,7 @@ from zoneinfo import ZoneInfo
 import config
 from arbtool.api import BudgetExceeded, OddsAPI, OddsAPIError, QuotaExhausted
 from arbtool.core import recommend_first_leg
+from arbtool.record import record_scan
 from arbtool.scan import scan
 
 API = "https://api.telegram.org/bot{token}/{method}"
@@ -530,6 +531,14 @@ def main() -> int:
                  f"this clears, and silence otherwise means no arbitrage.</i>")
         return 1
     clear_failures()
+
+    # Log the whole board set before suppression touches anything. What is
+    # worth recording is what the market did, not what reached the phone: a
+    # standing arbitrage suppressed for six hours is still a bookmaker earning
+    # its account, and a board that crossed at 0.8% still says which books
+    # disagree. record_scan never raises — see arbtool/record.py.
+    if getattr(config, "RECORD_BOARDS", False) and not args.dry_run:
+        record_scan(result, config, credits=api.credits)
 
     playable = list(result["playable"])
     n_games = len(result["opportunities"])

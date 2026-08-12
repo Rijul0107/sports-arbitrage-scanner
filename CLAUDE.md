@@ -217,6 +217,14 @@ Filter now lives in `scan.is_playable(opp, cfg)`, reads `Opportunity.realised_ma
 
 Rounding loss is small at `TOTAL_STAKE = 1500` — under 0.07 percentage points on the demo boards — and grows as the stake falls, because the whole-dollar remainder is a larger share of a smaller position. Do not conclude from the demo gap that the distinction is cosmetic.
 
+### Counting which books appear in arbitrages answers the wrong question
+
+Ranking bookmakers by how often they show up in a crossing pairing credits a book for arbitrages another book would have supplied anyway. Ladbrokes and Neds are the standing case — both Entain, prices tracking each other (§11) — so a count marks both as valuable when either alone gives nearly the same result. The inverse also bites: a book appearing in few arbitrages can be the sole outlier price in them, and cutting it deletes those outright.
+
+`study.py` measures what a subset **loses** instead: restrict the board to those books, re-run `analyse_game`, see what survives. That is why `record.py` stores the whole board including books that won no outcome — detections alone cannot answer the question after the fact, and the boards cannot be re-fetched.
+
+Also: a standing arbitrage is re-logged every 30 minutes until it closes. `study.collapse()` folds boards to distinct `(event, market)` and scores the best each ever offered, because it is one bet. Summing rows pays the user thirty times for one opportunity and ranks slow markets far above their worth. Guarded by `tests/test_record.py::TestSubsetReplay::test_a_standing_arb_counts_once_however_often_it_is_logged`.
+
 ### `str.replace` with an empty match
 
 Not code bug but process one: patching this repo by computing slice between two `str.index()` calls silently produced empty string when first anchor appeared in CSS comment before second. `s.replace("", x)` inserts between every character and produced 102 MB file. Prefer Edit tool with unique anchors over programmatic string surgery.
@@ -285,6 +293,7 @@ python3 tests/test_server.py      # 21 — server, payload shape, in-play exclus
                                   #      the playable gate
 python3 tests/test_alert.py       # 22 — Telegram suppression and formatting
 python3 tests/test_bot.py         # 42 — reply bot, restake
+python3 tests/test_record.py      # 13 — board log, subset replay
 python3 tests/test_dual_engine.py #  1 — browser engine v Python, 600+ boards
 python3 verify.py                 # independent verification (see below)
 node tests/e2e_server_browser.mjs   # needs a server on :8792 AND a playwright
@@ -344,7 +353,7 @@ Do not add these without being asked:
 
 - **Automated bet placement.** No API access to AU books, failure modes severe. Tool advises; human places.
 - **Additional markets** (spreads, totals). Would find more arbitrage but multiplies credit cost per poll — 3 markets is 3× the burn. Deliberate choice given free tier.
-- **Persistence / history.** That is research repo's job (§1).
+- **Persistence / history.** That is research repo's job (§1). **One scoped exception, live 2026-08-12:** `arbtool/record.py` logs every board to `data/boards.db` and `study.py` replays it. Not for a write-up — it answers an operational question with a cost attached: twelve funded accounts at `TOTAL_STAKE` each is $18,000 asleep, and the owner wants 5–6. Costs no credits, writes prices already fetched. Gated on `config.RECORD_BOARDS`; turn off once the cut is made. Do not grow it into outcome tracking or summary statistics — that is still the research repo.
 - **Third-party dependencies.** Whole tool runs on standard library. Keep it that way unless strong reason.
 - **Account or bankroll tracking.** Out of scope.
 

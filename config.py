@@ -153,6 +153,15 @@ STAKE_INCREMENT = 1.00
 # the exposure of an unfilled second leg.
 MIN_PROFIT = 10.00
 
+# Log every board every scan looks at to data/boards.db, crossing or not.
+#
+# On for a fortnight from 2026-08-12 to decide which bookmakers keep their
+# accounts funded — twelve accounts at TOTAL_STAKE each is a lot of money
+# asleep, and study.py replays the stored boards through every 6-book subset to
+# find which six lose the least. Costs no API credits; it writes prices already
+# fetched. Turn off once the cut is made, or the file grows without a reader.
+RECORD_BOARDS = True
+
 # Ignore anything thinner than this regardless of stake size. Measured on the
 # realised margin — the post-rounding figure every surface prints — so the
 # percentage in an alert is never below the number set here. Gating on the
