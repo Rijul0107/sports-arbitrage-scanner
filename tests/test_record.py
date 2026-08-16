@@ -99,10 +99,28 @@ class TestLoggingNeverBreaksTheAlert(RecordCase):
                                          config, db_path=self.db))
 
 
+def permissive():
+    """config with the profit and margin gates opened wide.
+
+    The replay tests exercise the mechanics of subset scoring, not the live
+    tuning. Recording under the real gates broke once already: MIN_MARGIN_PCT
+    went 1.0 -> 2.0 on 2026-08-16 and the demo set's only crossing board
+    realises 0.74%, so every board scored zero and assertions comparing
+    "before" and "after" passed vacuously on 0 == 0 — except the one that
+    demanded a difference. Gates themselves are covered by
+    tests/test_server.py::TestPlayableGate."""
+    from types import SimpleNamespace
+    ns = SimpleNamespace(**{k: getattr(config, k) for k in dir(config)
+                            if k.isupper()})
+    ns.MIN_PROFIT = 0.0
+    ns.MIN_MARGIN_PCT = 0.0
+    return ns
+
+
 class TestSubsetReplay(RecordCase):
     def setUp(self):
         super().setUp()
-        record_scan(demo_result(), config, db_path=self.db)
+        record_scan(demo_result(), permissive(), db_path=self.db)
         with connect(self.db) as conn:
             self.rows_ = study.load_boards(conn)
 
@@ -139,7 +157,7 @@ class TestSubsetReplay(RecordCase):
         # would. The count and the total must not move: it is one bet.
         before = study.score(self.rows_, list(config.BOOKS), config)
         for _ in range(10):
-            record_scan(demo_result(), config, db_path=self.db)
+            record_scan(demo_result(), permissive(), db_path=self.db)
         with connect(self.db) as conn:
             rows = study.load_boards(conn)
         self.assertGreater(len(rows), len(self.rows_))

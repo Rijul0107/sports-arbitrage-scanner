@@ -16,7 +16,7 @@ Scope, deliberately narrow:
 - **Markets**: head-to-head everywhere; spreads and totals on NRL and AFL; totals on NHL. Per sport in `config.SPORT_MARKETS`, because cost is `markets × regions` per poll and market only worth its credit where AU books actually quote it. Every market must be two-outcome *at one line* — see §5, this is where money lost if got wrong.
 - **Region**: Australian bookmakers.
 - **Timing**: pre-match only, legal reasons (see §5).
-- **Books**: twelve, configured in `config.py`. Betfair is exchange, carries commission; see §4.
+- **Books**: seven, configured in `config.py` — cut from twelve on 2026-08-16 (book-cull study, see §12). All corporates; Betfair out, but its commission entry kept for any return.
 
 ### What this is NOT
 

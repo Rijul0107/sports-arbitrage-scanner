@@ -76,28 +76,27 @@ REGIONS = "au"
 # default here said "Sportsbet", which never matched anything — the largest book
 # in the country was being dropped in silence on every scan.
 BOOKS = [
+    # Cut from twelve to seven on 2026-08-16, by the owner, mid book-cull
+    # study: TAB, Neds, PointsBet (AU), Betfair and TABtouch are accounts the
+    # owner has ruled out keeping, so scanning their prices only finds
+    # arbitrages that cannot be placed. Neds was priced identically to
+    # Ladbrokes on 99.9% of 22,200 shared outcomes in boards.db — one Entain
+    # desk, and Ladbrokes keeps the slot. TABtouch matched Unibet on 62.8% of
+    # 32,914 (shared feed on many markets); Unibet keeps that slot. Full
+    # twelve-book prices remain in data/boards.db up to 2026-08-16 for
+    # study.py replay. To re-add a book the title must match the API exactly:
+    # "TAB", "Neds", "PointsBet (AU)", "Betfair", "TABtouch".
+    #
+    # Coverage percentages measured 2026-08-09 over 380 games: share of games
+    # the book quoted at all. Betr outcovers SportsBet, which was a surprise,
+    # and Dabble is thin but appears on tennis specifically.
     "SportsBet",
-    "TAB",
     "Ladbrokes",
-    "Neds",
-    "PointsBet (AU)",
     "PlayUp",
-    # Added 2026-08-09 once the paid plan was active. Coverage measured over
-    # 380 games across every configured sport that day; the percentage is the
-    # share of games the book quoted at all. Betr outcovers SportsBet, which
-    # was a surprise, and Dabble is thin but appears on tennis specifically.
     "Betr",         # 32.4% — widest coverage of any AU book in the sample
     "Unibet",       # 20.0%
-    "TABtouch",     # 15.3%
     "Bet Right",    # 12.9%
     "Dabble AU",    #  7.1% — tennis mostly
-    # Added 2026-08-10, once commission became per-book. 21.1% coverage and
-    # structurally the most independent price here: an exchange, priced by
-    # punters laying against each other rather than by a trading desk, so it
-    # disagrees with the corporates in a way Ladbrokes and Neds never will.
-    # Its commission is in BOOK_COMMISSION_PCT below and is load-bearing —
-    # without it this book would overstate every position it appears in.
-    "Betfair",      # 21.1%
 ]
 
 # Bet365 is absent because it is not obtainable, not because it was not wanted.
@@ -105,12 +104,12 @@ BOOKS = [
 # AFL and NRL. Requested by name on 2026-08-09 with the paid key: 8 NRL games
 # and 7 AFL games returned, zero Bet365 prices on any of them.
 
-# Twelve books gives sixty-six pairings. Count is not the same as independence:
-# Ladbrokes and Neds are one Entain trading desk and returned identical prices
-# and identical coverage on a 23-game board, with Neds in zero best pairings.
-# TAB and TABtouch are similarly related. Treat this as roughly ten independent
-# price sources, not twelve — though Betfair, being an exchange, is the most
-# independent of them.
+# Seven books gives twenty-one pairings, and after the 2026-08-16 cut each is
+# an independent price source: the boards.db identical-price analysis put every
+# remaining pair between 10% and 32% price agreement, against 99.9% for the
+# Neds/Ladbrokes twins that motivated the check. One earlier belief did not
+# survive that analysis: TAB and TABtouch were assumed related like the Entain
+# pair, but matched on only 12.3% of shared outcomes.
 #
 # An earlier version of this file dropped Betr, Unibet, TABtouch and Bet Right
 # on the grounds that they "quote only once a game is under way". That was
@@ -128,13 +127,12 @@ BOOKS = [
 #                the paid plan, zero prices returned on the only two sports it
 #                is documented to cover.
 #
-# Betfair was in this list until 2026-08-10 and is now included, because
-# commission is per book rather than one global rate. One caution survives the
-# change: it once quoted 1.02/1.02 on a thin live NRL market, and evaluate()
-# only rejects prices at or below 1.00, so a garbage high side on an illiquid
-# exchange market could still manufacture an arb that cannot be placed. Treat
-# any Betfair-led edge above roughly 5% as a thin market rather than a payday,
-# and check the available liquidity in the app before staking.
+# Betfair left the list on 2026-08-16 with the other ruled-out accounts. If it
+# ever returns, two things still hold: its commission entry in
+# BOOK_COMMISSION_PCT below is load-bearing (without it every Betfair position
+# is overstated), and it once quoted 1.02/1.02 on a thin live NRL market —
+# evaluate() only rejects prices at or below 1.00, so a garbage high side on an
+# illiquid exchange market can manufacture an arb that cannot be placed.
 
 # ---------------------------------------------------------------------------
 # Money
@@ -167,7 +165,9 @@ RECORD_BOARDS = True
 # percentage in an alert is never below the number set here. Gating on the
 # theoretical margin instead would let a 1.0% board through and then print
 # 0.94%, which reads as the threshold being broken.
-MIN_MARGIN_PCT = 1.0
+# Raised 1.0 -> 2.0 on 2026-08-16 at the owner's request: alert only on
+# margins above 2%.
+MIN_MARGIN_PCT = 2.0
 
 # Commission charged on winnings, per bookmaker. Books absent here charge
 # nothing, which is every traditional Australian corporate.
