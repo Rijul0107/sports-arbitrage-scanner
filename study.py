@@ -136,6 +136,11 @@ def main() -> int:
     p.add_argument("--keep", type=int, default=6, help="subset size (default 6)")
     p.add_argument("--require", action="append", default=[],
                    help="book that must be in every subset; repeatable")
+    p.add_argument("--exclude", action="append", default=[],
+                   help="book removed from every subset and from the baseline; "
+                        "repeatable. For accounts already ruled out — limited, "
+                        "closed, or not wanted — so the ranking only compares "
+                        "books that could actually be kept.")
     p.add_argument("--since", help="ignore scans before this ISO timestamp")
     p.add_argument("--db", help="path to boards.db")
     p.add_argument("--top", type=int, default=8, help="subsets to print")
@@ -155,6 +160,18 @@ def main() -> int:
     print(f"{len(rows)} boards in scope\n")
 
     books = list(config.BOOKS)
+    excluded = set(args.exclude)
+    unknown = excluded - set(books)
+    if unknown:
+        print(f"--exclude names not in config.BOOKS: {', '.join(sorted(unknown))}")
+        return 1
+    if excluded & set(args.require):
+        both = excluded & set(args.require)
+        print(f"Both required and excluded: {', '.join(sorted(both))}")
+        return 1
+    if excluded:
+        books = [b for b in books if b not in excluded]
+        print(f"Excluded up front: {', '.join(sorted(excluded))}\n")
     full_profit, full_count = score(rows, books, config)
     if full_count == 0:
         print("No board in the window clears the live thresholds. Nothing to "
