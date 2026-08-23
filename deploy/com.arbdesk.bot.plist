@@ -20,7 +20,7 @@
 
     <key>ProgramArguments</key>
     <array>
-        <string>/usr/local/bin/python3</string>
+        <string>/opt/homebrew/bin/python3</string>
         <string>/Users/rijulkhunger/Downloads/arb-tool/bot.py</string>
     </array>
 

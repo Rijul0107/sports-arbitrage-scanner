@@ -54,6 +54,6 @@
 # six hours. Failed scans are logged, and only alert after three in a row.
 
 SHELL=/bin/zsh
-PATH=/usr/local/bin:/usr/bin:/bin
+PATH=/opt/homebrew/bin:/usr/bin:/bin
 
-*/30 * * * * cd /Users/rijulkhunger/Downloads/arb-tool && /usr/local/bin/python3 alert.py >> alert.log 2>&1
+*/30 * * * * cd /Users/rijulkhunger/Downloads/arb-tool && /opt/homebrew/bin/python3 alert.py >> alert.log 2>&1
