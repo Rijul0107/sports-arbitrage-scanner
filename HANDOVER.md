@@ -86,7 +86,7 @@ All in `config.py`:
 | Setting | Default | Note |
 |---|---|---|
 | `BOOKS` | Sportsbet, Ladbrokes, TAB, Neds | Must match the API's names exactly. Ladbrokes and Neds are both Entain-owned and rarely disagree — consider swapping one for Betfair or PointsBet. |
-| `TOTAL_STAKE` | 1500 | Split across both legs of one arbitrage. |
+| `TOTAL_STAKE` | 1000 | Split across both legs of one arbitrage. |
 | `MIN_PROFIT` | 10 | Hides edges paying less. Set to 0 to see everything. |
 | `SESSION_CREDIT_BUDGET` | 120 | Hard cap per run. The guard that stops an afternoon eating the month. |
 | `POLL_SECONDS` | 60 | Below ~30 you are mostly paying for the API's own refresh cycle. |

@@ -206,7 +206,7 @@
     <span class="spacer"></span>
     <span class="stake-inline">
       <label for="stake">total stake $</label>
-      <input type="number" id="stake" value="1500" step="50" min="10">
+      <input type="number" id="stake" value="1000" step="50" min="10">
     </span>
     <label class="toggle"><input type="checkbox" id="arbOnly"> arb only</label>
     <button class="btn" id="refreshBtn" title="Re-read the last snapshot. Costs nothing.">Redraw</button>
@@ -456,7 +456,7 @@ const $ = id => document.getElementById(id);
 const money = n => '$' + n.toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:2});
 const money0 = n => '$' + n.toLocaleString(undefined,{maximumFractionDigits:0});
 const esc = s => String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
-const stakeVal = () => +$('stake').value || 1500;
+const stakeVal = () => +$('stake').value || 1000;
 
 /** Everything the UI needs to know about a game's best play, in one place. */
 function play(g){

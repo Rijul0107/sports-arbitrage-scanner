@@ -141,7 +141,12 @@ BOOKS = [
 # Total across both legs of a single arbitrage. Matches the dashboard's own
 # default stake input, so the alert and the browser quote the same position
 # for the same board — they disagreed while this said 2000.
-TOTAL_STAKE = 1500.00
+# 1500 -> 1000 on 2026-08-23 at the owner's request: every alert quotes a
+# $1000 position. Rounding loss grows as the stake falls (CLAUDE.md §8), so
+# the realised margin sits slightly further below the theoretical one than it
+# did at 1500; MIN_MARGIN_PCT gates on the realised figure, so the alerts stay
+# honest, there are simply marginally fewer of them.
+TOTAL_STAKE = 1000.00
 
 # Smallest stake a book will accept. Whole dollars keeps the numbers quick to
 # type under time pressure and avoids fat-finger errors.

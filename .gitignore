@@ -12,3 +12,4 @@ alert.log
 .bot_alive.json
 .bot_warned.json
 .env.paid.bak
+data/

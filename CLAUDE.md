@@ -215,7 +215,7 @@ Earlier dashboard demo payload carried hand-written margins that did not match p
 
 Filter now lives in `scan.is_playable(opp, cfg)`, reads `Opportunity.realised_margin_pct`, and is shared by `alert.py`, `watch.py` and `serve.py` through `result["playable"]` so the three cannot disagree about what clears. Guarded by `tests/test_server.py::TestPlayableGate`.
 
-Rounding loss is small at `TOTAL_STAKE = 1500` — under 0.07 percentage points on the demo boards — and grows as the stake falls, because the whole-dollar remainder is a larger share of a smaller position. Do not conclude from the demo gap that the distinction is cosmetic.
+Rounding loss is small at `TOTAL_STAKE = 1000` (1500 until 2026-08-23) — under 0.07 percentage points on the demo boards at 1500 — and grows as the stake falls, because the whole-dollar remainder is a larger share of a smaller position. Do not conclude from the demo gap that the distinction is cosmetic.
 
 ### Counting which books appear in arbitrages answers the wrong question
 

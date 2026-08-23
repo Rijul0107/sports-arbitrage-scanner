@@ -35,8 +35,16 @@ found without recomputing it — never as the input to a subset decision.
 
 The thresholds and stake in force are copied onto every scan row. They change —
 TOTAL_STAKE moved 2000 to 1500 and MIN_MARGIN_PCT 0.5 to 1.0 on 2026-08-12,
-mid-collection — and a profit figure whose stake is unknown cannot be compared
-against one from a different week.
+MIN_MARGIN_PCT 1.0 to 2.0 on 2026-08-16, TOTAL_STAKE 1500 to 1000 on
+2026-08-23, all mid-collection — and a profit figure whose stake is unknown
+cannot be compared against one from a different week.
+
+That the stake is recorded is what keeps study.py honest, but it does not make
+the weeks equal. study.py collapses a market to the best it ever offered across
+the whole window, so an edge seen only after 2026-08-23 is scored on a $1000
+position while an identical edge from the first fortnight is scored on $1500.
+Rank books on the window that shares a stake, or read the totals as ordinal,
+not as dollars earned.
 
 COST
 
