@@ -32,7 +32,7 @@ dev = ["pytest>=7.0"]
 arb = "arbtool.cli:main"
 
 [project.urls]
-Repository = "https://github.com/Rijul0107/arb-desk"
+Repository = "https://github.com/Rijul0107/sports-arbitrage-scanner"
 
 [tool.hatch.build.targets.wheel]
 packages = ["arbtool"]

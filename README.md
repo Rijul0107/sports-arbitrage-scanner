@@ -4,12 +4,12 @@ Finds cross-bookmaker arbitrage on Australian sports markets, logs every price
 it sees, and backtests what a bankroll would have done. Standard library only —
 no dependencies, no framework, no build step.
 
-[![CI](https://github.com/Rijul0107/arb-desk/actions/workflows/ci.yml/badge.svg)](https://github.com/Rijul0107/arb-desk/actions/workflows/ci.yml)
+[![CI](https://github.com/Rijul0107/sports-arbitrage-scanner/actions/workflows/ci.yml/badge.svg)](https://github.com/Rijul0107/sports-arbitrage-scanner/actions/workflows/ci.yml)
 ![Python](https://img.shields.io/badge/python-3.10%2B-blue)
 ![Tests](https://img.shields.io/badge/tests-214%20passing-brightgreen)
 ![Dependencies](https://img.shields.io/badge/dependencies-none-lightgrey)
 
-**[Live dashboard →](https://rijul0107.github.io/arb-desk/)** — real recorded
+**[Live dashboard →](https://rijul0107.github.io/sports-arbitrage-scanner/)** — real recorded
 odds, no setup, no API key.
 
 An arbitrage exists when two bookmakers disagree enough that backing both sides
@@ -120,7 +120,7 @@ backtest that banks a 30% "arbitrage" is measuring its own data errors.
 No API key, no credits, nothing fetched:
 
 ```bash
-git clone https://github.com/Rijul0107/arb-desk && cd arb-desk
+git clone https://github.com/Rijul0107/sports-arbitrage-scanner && cd sports-arbitrage-scanner
 python3 watch.py --demo        # terminal view
 python3 serve.py --demo        # dashboard at http://127.0.0.1:8787
 ```
