@@ -1,0 +1,48 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        # 3.10 is the floor declared in pyproject; 3.13 catches deprecations
+        # early. The tool ships no dependencies, so the matrix is cheap and
+        # there is no lockfile to drift.
+        python-version: ["3.10", "3.11", "3.12", "3.13"]
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+
+      - name: Install
+        run: |
+          python -m pip install --upgrade pip
+          pip install -e ".[dev]"
+
+      - name: Test
+        # No network in CI. Every test runs against recorded fixtures or the
+        # demo board in watch.py; a test that needed a live API key would be a
+        # test that cannot run here, and would quietly stop running.
+        run: pytest -q
+
+      - name: Staking proof
+        # verify.py checks the allocation maths against hand-computed cases.
+        # It is not a unit test — it is the argument that the money numbers are
+        # right — so it runs as its own step and its output stays readable in
+        # the log.
+        run: python verify.py
+
+      - name: CLI smoke
+        run: |
+          python -m arbtool.cli --help
+          python -m arbtool.cli --version

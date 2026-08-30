@@ -405,3 +405,52 @@ TELEGRAM_CHAT_IDS = [c.strip() for c in
 
 HOST = "127.0.0.1"
 PORT = 8787
+
+# ---------------------------------------------------------------------------
+# Season watcher (season.py)
+# ---------------------------------------------------------------------------
+
+# season.py answers one question — "is there enough sport on to be worth paying
+# for odds again?" — and answers it for free. It reads only /sports, which costs
+# no credits on any plan, so it can run daily on the free 500-credit tier
+# without touching the allowance. It must never call /odds; see the note in
+# season.py about why that separation is load-bearing.
+#
+# The prefixes below are the sports this tool can actually arbitrage, which is
+# narrower than "sports the API covers". A two-outcome market is required:
+# soccer and NPB baseball quote a Draw, so a crossed h2h there is not a hedge
+# and scan.py rejects it anyway. Adding "soccer_" here would produce alerts for
+# competitions that can never generate an opportunity.
+SEASON_WATCH_PREFIXES = (
+    "rugbyleague_",
+    "aussierules_",
+    "basketball_",
+    "baseball_",
+    "americanfootball_",
+    "icehockey_",
+    "mma_",
+    "tennis_",
+)
+
+# Prefixes reported as a single line rather than key by key. Tennis carries one
+# key per tournament and the set turns over weekly, so tracking them
+# individually would send a message most days that says nothing about whether a
+# season has started. Collapsed, the signal is "tennis is on" / "tennis is
+# off", which is the part that changes the answer.
+SEASON_COLLAPSE_PREFIXES = ("tennis_",)
+
+# Where the last seen set is kept, so a run can tell "new" from "still there".
+# Beside boards.db in data/, which is already gitignored.
+SEASON_STATE_PATH = str(Path(__file__).parent / "data" / "seasons.json")
+
+# Send a message on every run, not only when the set changes. Off by default:
+# the point of a daily watcher is silence until something happens. Turn it on
+# for a day if you want to confirm the job is alive.
+SEASON_ALWAYS_REPORT = False
+
+# Credits the plan gives per month, used only to phrase the cost line in the
+# message ("would cost 9/day against 500"). The API reports true remaining
+# credits in a response header, but /sports responses carry it inconsistently
+# and a wrong number here is worse than an approximate one, so this is stated
+# rather than inferred.
+SEASON_PLAN_CREDITS = 500

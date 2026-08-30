@@ -1,209 +1,216 @@
 # Arb Desk
 
-Finds cross-book arbitrage across Australian bookmakers and tells you exactly
-which two books to bet with and how much on each.
+Finds cross-bookmaker arbitrage on Australian sports markets, logs every price
+it sees, and backtests what a bankroll would have done. Standard library only —
+no dependencies, no framework, no build step.
 
-Covers **NRL and tennis** — both two-outcome sports, so an arbitrage needs only
-two opposing prices and there is no draw leg to cover.
+[![CI](https://github.com/Rijul0107/arb-desk/actions/workflows/ci.yml/badge.svg)](https://github.com/Rijul0107/arb-desk/actions/workflows/ci.yml)
+![Python](https://img.shields.io/badge/python-3.10%2B-blue)
+![Tests](https://img.shields.io/badge/tests-214%20passing-brightgreen)
+![Dependencies](https://img.shields.io/badge/dependencies-none-lightgrey)
+
+**[Live dashboard →](https://rijul0107.github.io/arb-desk/)** — real recorded
+odds, no setup, no API key.
+
+An arbitrage exists when two bookmakers disagree enough that backing both sides
+returns a profit whichever way the fixture goes. The edge is small, brief, and
+mostly absent: across **115,583 recorded odds boards, 1.34% ever crossed**, and
+the median board sat **3.6% the wrong side of break-even** — that gap is the
+bookmakers' margin, measured rather than assumed.
 
 ---
 
-## Try it right now, without an API key
+## What it actually found
+
+The scanner ran live against The Odds API from **12–29 August 2026**, polling
+every 30 minutes and recording the complete odds board on every scan — not only
+the boards that crossed. That distinction is what makes the analysis below
+possible, and it cannot be reconstructed after the fact.
+
+| | |
+|---|---|
+| Odds boards recorded | **115,583** |
+| Fixtures, across 18 sports | 984 |
+| Scans / API credits spent | 550 / 11,423 |
+| Boards where a market crossed | 1,553 (**1.34%**) |
+| Cleared the profit and margin gates | 26 |
+| Median margin, all boards | **−3.60%** |
+| Median margin when crossed | 0.21% |
+
+### Simulated bankroll
+
+> **No bets were placed.** Every figure below is a replay of recorded odds.
+> `backtest.py` prints its six assumptions on every run and the JSON output
+> carries `"bets_placed": false`.
+
+Starting with **$5,000** over those 17.7 days:
+
+| Position size | Final | Return | Opportunities taken |
+|---|---|---|---|
+| 100% of bankroll | **$6,006.55** | **+20.13%** | 8 of 26 |
+| 50% | $5,743.98 | +14.88% | 12 of 26 |
+| 25% | $5,587.28 | +11.75% | 16 of 26 |
+| 10% | $5,421.73 | +8.43% | 26 of 26 |
+
+**The return is a range, not a number: +8.4% to +20.1%, decided entirely by
+position sizing.** Larger positions capture more of each margin but lock the
+bankroll until settlement, so the next opportunity inside that window is missed.
+Twenty-six opportunities is far too few to identify an optimum — the tool says
+so in its own output rather than quoting the best cell.
 
 ```bash
-cd arb-tool
-python3 watch.py --demo      # terminal view, fabricated prices
-python3 serve.py --demo      # dashboard in your browser
+arb backtest --bankroll 5000 --sweep
 ```
 
-Nothing is fetched and no credits are spent. This is the fastest way to see
-what the tool does before deciding whether to connect anything.
+### The finding worth the two weeks
 
-## Going live
+Taking **every** arbitrage is worse than taking the **filtered** ones:
+
+| Strategy | Opportunities | Gross | Peak capital | Return on capital |
+|---|---|---|---|---|
+| Every crossing under 10% | 99 | $919 | $26,000 | **3.53%** |
+| Cleared the gates | 26 | $843 | $10,000 | **8.43%** |
+
+The filtered strategy earns 92% of the dollars on 38% of the capital. Ninety-
+nine opportunities at a 0.52% median margin tie up money for almost nothing.
+`MIN_MARGIN_PCT` and `MIN_PROFIT` are not caution settings — they are a
+capital-efficiency constraint, and the data is what shows it.
 
 ```bash
-export ODDS_API_KEY="your_key"        # free key at the-odds-api.com
-python3 verify_live.py                # FIRST — see below
-python3 serve.py                      # dashboard, refreshes every 60s
-python3 watch.py                      # terminal, alerts on a find
+arb backtest --compare
 ```
 
----
-
-## Run `verify_live.py` before you trust anything
-
-"Live odds API" is doing a lot of work in that phrase. The endpoint returns the
-most recent price the API *captured* from each bookmaker — not the price on the
-bookmaker's screen this instant. The Odds API refreshes pre-match head-to-head
-markets roughly every 60 seconds, so your view can be a minute or two behind
-what your phone shows.
-
-`verify_live.py` makes one real call, prints every book's price with the exact
-capture timestamp and age, and asks you to compare against the bookmaker apps
-line by line. It reports the median quote age and tells you plainly if the lag
-makes arbitrage unrealistic.
-
-Do this before you stake anything. Don't take it on trust — including from
-whoever wrote this tool.
-
----
-
-## The pairwise matrix
-
-The thing this tool does that a simple arbitrage checker does not: it evaluates
-**every pairing of your books**, not just whether an arbitrage exists somewhere.
+### Two accounts, one price feed
 
 ```
-  PAIRWISE MARGIN
-               Sportsbet  Ladbrokes        TAB       Neds
-  Sportsbet            —     +0.75%     +2.38%   [+4.99%]
-  Ladbrokes       +0.75%          —     -1.76%     +0.65%
-  TAB             +2.38%     -1.76%          —     -2.09%
-  Neds          [+4.99%]     +0.65%     -2.09%          —
+BOOK PAIRS BY IDENTICAL PRICING (>= 200 shared markets)
+  Ladbrokes / Neds                 11,198 shared     99.9% identical
+  TABtouch / Unibet                16,594 shared     52.4% identical
+  PlayUp / TAB                     11,708 shared     23.8% identical
 ```
 
-Same game, same moment. Sportsbet + Neds pays 4.99%; Sportsbet + Ladbrokes pays
-0.75%. Nearly seven times the difference depending on which two accounts you
-use. TAB + Neds is *negative* even though Neds holds the best Storm price,
-because TAB's Penrith price is too short to cover it.
+Ladbrokes and Neds are both Entain-owned and post the **same price 99.9% of the
+time**. Holding both is one account's worth of information behind two accounts'
+worth of capital. This is measured as *exact price agreement*, not correlation:
+two books that move together but differ by a tick still create arbitrage; two
+that post identical numbers never can.
 
-The count matters as much as the best figure. Four working pairings means that
-if Sportsbet shortens while you are typing, you drop to Sportsbet + TAB at
-2.38% and still profit. One working pairing means the moment either price moves
-it is gone. The tool shows both.
+### Crossing rate is not opportunity rate
 
-Four books gives six pairings; five gives ten.
+| Sport | Boards | Crossed | Rate | **Actionable** |
+|---|---|---|---|---|
+| icehockey_nhl | 2,352 | 550 | 23.38% | **0** |
+| basketball_nba | 5,880 | 357 | 6.07% | 3 |
+| aussierules_aflw | 3,616 | 140 | 3.87% | **45** |
+| baseball_mlb | 20,308 | 27 | 0.13% | 4 |
+
+Ice hockey crossed seventy times more often than baseball and produced nothing:
+average margin 0.20%, maximum 0.64%, and 433 of the 550 sat on thin two-book
+boards. Ranking sports by crossing rate would have put the worst one first.
+
+Three boards showed margins above 10% — up to 30.18%. Those are stale or
+mistyped prices that would have been voided on placement, not opportunities.
+They are excluded from every figure above and counted separately, because a
+backtest that banks a 30% "arbitrage" is measuring its own data errors.
 
 ---
 
-## What you get when it finds one
+## Try it
 
-Dollars first, percentages second. On a $1,500 stake:
+No API key, no credits, nothing fetched:
+
+```bash
+git clone https://github.com/Rijul0107/arb-desk && cd arb-desk
+python3 watch.py --demo        # terminal view
+python3 serve.py --demo        # dashboard at http://127.0.0.1:8787
+```
+
+Live, with a free key from [the-odds-api.com](https://the-odds-api.com):
+
+```bash
+export ODDS_API_KEY="..."
+python3 verify_live.py         # check price freshness before trusting anything
+arb scan                       # one poll
+arb serve                      # dashboard
+```
+
+## Commands
 
 ```
-  $74.56 GUARANTEED   4.99% on $1,500.00
-
-  LEG 1  PLACE FIRST (longest price — most likely to move)
-    Sportsbet   back Penrith Panthers @ 2.12
-    STAKE $743.00   returns $1,575.16
-  LEG 2  then
-    Neds        back Melbourne Storm @ 2.08
-    STAKE $757.00   returns $1,574.56
-
-  Outlay $1,500.00   Profit $74.56 (4.97%)
-  If leg 2 misses you are unhedged on $743.00 — that, not the outlay, is the risk.
+arb scan       one-off scan of the live board
+arb watch      poll continuously
+arb alert      scan once and send to Telegram (cron entry point)
+arb bot        Telegram bot that answers replies to alerts
+arb serve      local dashboard
+arb books      list bookmaker titles and price the next poll
+arb season     which sports are in season — costs no credits
+arb study      replay logged boards under each candidate book subset
+arb backtest   simulate a bankroll over the logged boards
+arb verify     prove the staking maths against known cases
 ```
 
-Stakes are whole dollars because that is what you can type into a betslip, and
-the profit shown is the worst case **after** rounding — not the headline
-margin, which rounding often erodes. On a thin edge the tool refuses to print a
-slip at all and tells you the minimum stake that would work.
+## How it works
 
----
+```
+The Odds API  ──▶  scan.py      find two-outcome markets, best price per side
+                     │
+                     ▼
+                   core.py      evaluate → allocate stakes → whole-dollar round
+                     │
+       ┌─────────────┼──────────────┬───────────────┐
+       ▼             ▼              ▼               ▼
+    alert.py      serve.py      record.py       bot.py
+    Telegram      dashboard     board log       reply handler
+                                    │
+                          ┌─────────┴─────────┐
+                          ▼                   ▼
+                    backtest.py          analytics.py
+                    bankroll sim         margins, correlation
+```
 
-## Things worth knowing before you place anything
+**Design decisions worth defending in a code review:**
 
-**Online in-play betting is illegal in Australia.** Under the Interactive
-Gambling Act operators may only accept in-play bets by telephone or in person.
-The tool refuses to surface anything already under way. Everything you can act
-on is pre-match. This is also why the 60-second feed is defensible: pre-match
-edges persist for minutes, where in-play edges last seconds.
-
-**Your exposure is one leg, not the stake.** The way people lose money at this
-is placing leg one, finding leg two has moved, and holding an unhedged bet. On
-$1,500 that is roughly $750 at risk. Place the longer price first — it moves
-furthest and is the one about to be corrected — and if the second leg has gone,
-decide immediately whether to take the worse price or wear the exposure.
-
-**Tennis has a retirement trap.** Books differ on what happens when a player
-retires mid-match: some void, some pay out on whoever advances, some settle
-after one set. If your two books have different rules, a retirement turns a
-hedged position into a one-sided bet. Check both books' tennis rules, or stick
-to NRL.
-
-**Ladbrokes and Neds are both Entain-owned** and their prices track each other
-closely, so that pairing rarely disagrees. Swapping one for Betfair Exchange or
-PointsBet would widen your matrix.
-
-**Books restrict winning accounts.** That, rather than the maths, is what makes
-arbitrage hard at scale.
-
----
-
-## Credit budget
-
-The free tier gives 500 credits a month. One poll costs 1 credit per sport in
-season, so NRL plus tennis costs 2.
-
-| Pattern | Cost | |
-|---|---|---|
-| Dashboard open 2h, 60s refresh | ~240 | half your month |
-| Terminal watch, 2h before a fixture | ~120 | four sessions a month |
-| Continuous, all month | ~86,000 | needs a paid plan |
-
-`SESSION_CREDIT_BUDGET` in `config.py` caps a single run, and the server serves
-its last snapshot rather than burning through your month. `/sports` and
-`/events` are free, so checking what is on costs nothing.
-
-The productive window is the couple of hours before a fixture: books are
-actively repricing and disagreement between them is widest. Tennis gives more
-simultaneous markets than NRL and is generally the better hunting ground.
-
-If you outgrow the free tier, RapidOddsAPI's $49/month tier gives 200,000
-credits with deeper AU coverage than The Odds API's $59/100,000 — worth
-comparing before you upgrade in place.
-
----
-
-## Configuration
-
-Everything lives in `config.py`:
-
-`BOOKS` is the set compared — must match the API's names exactly. `TOTAL_STAKE`
-is the amount split across both legs. `MIN_PROFIT` hides anything paying less
-than it, so a $2 edge does not clutter the screen. `PRE_MATCH_ONLY` and
-`MAX_DATA_AGE_SECONDS` are the safety rails; leave them on.
-
----
+- **The page recomputes every margin from the raw prices.** The server sends
+  odds and commission rates, never a derived figure, so the dashboard can never
+  disagree with the numbers it was built from. Two implementations of the same
+  arithmetic is the failure mode this repo works hardest to avoid.
+- **Whole-dollar stakes.** Bookmakers do not accept $412.67. `realised_margin`
+  is the margin that survives rounding both legs, and it gates every alert —
+  the theoretical margin is never what gets reported.
+- **Commission is per-book.** Betfair is an exchange and charges on winnings;
+  applying a flat rate would overstate its profit and rank it first.
+- **Empty API responses are free**, so out-of-season keys cost nothing while
+  a poorly-covered sport costs a credit to return games you cannot hedge.
+  Sport selection is priced, not guessed.
+- **No dependencies.** urllib, sqlite3, http.server, zoneinfo. It deployed to a
+  $4 droplet with `git pull` and no virtualenv.
 
 ## Tests
 
 ```bash
-python3 tests/test_core.py      # 26 — the arbitrage maths
-python3 tests/test_pairs.py     # 16 — the pairwise matrix
-python3 tests/test_server.py    #  6 — server and payload shape
-python3 verify.py               # independent verification, see below
+pip install -e ".[dev]"
+pytest -q            # 214 tests
+python verify.py     # staking maths against hand-computed cases
 ```
 
-`verify.py` is not a unit test suite — it re-derives the results a different
-way, so a shared bug is less likely to hide. It checks headline numbers by hand
-in exact fractions, brute-forces every possible whole-dollar split to confirm
-the staking is optimal, and cross-checks arbitrage detection against an
-exhaustive assignment search over 2,000 random markets.
+Every test runs offline against recorded fixtures. A test that needed a live
+key would be a test that silently stops running in CI.
 
----
+Economic thresholds used by fixtures are pinned in `tests/fixture_config.py`
+rather than read from `config.py`. When the production stake moved 1500 → 1000,
+eighteen tests began failing with `IndexError` — not because the alerting logic
+broke, but because the demo fixture's profit fell below `MIN_PROFIT` and the
+filtered list went empty. A pricing decision should not be able to take out a
+fifth of the suite.
 
-## Files
+## Status
 
-| | |
-|---|---|
-| `serve.py` | dashboard + API proxy |
-| `watch.py` | terminal watcher |
-| `verify_live.py` | prove the feed is live and accurate |
-| `verify.py` | independent verification of the maths |
-| `config.py` | all settings |
-| `arbtool/core.py` | arbitrage maths and staking |
-| `arbtool/pairs.py` | pairwise matrix |
-| `arbtool/scan.py` | API responses to ranked opportunities |
-| `arbtool/api.py` | API client, credit accounting, freshness |
-| `static/dashboard.html` | the UI |
+Retired August 2026. The scanner is stopped and the cloud host destroyed; the
+board log it produced is what the analysis above runs on. `season.py` still runs
+daily on the free API tier — it reads only the unmetered `/sports` endpoint and
+constructs the client with a zero credit budget, so an accidental odds call
+raises rather than spending.
 
-The dashboard recomputes every margin from the prices it is sent, rather than
-trusting figures from the server. The JavaScript and Python engines were
-verified to return identical results, so the browser and the terminal cannot
-disagree.
+## Licence
 
----
-
-Not financial advice. Odds move, books limit and void bets, and a hedge that
-only half fills is just a bet.
+MIT. Nothing here is betting advice, and none of the returns above were realised.

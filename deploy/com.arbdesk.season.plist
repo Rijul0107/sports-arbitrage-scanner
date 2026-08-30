@@ -1,0 +1,85 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<!--
+  Daily free-tier season watch. Spends no API credits: season.py reads only
+  /sports, which is unmetered on every plan, and builds OddsAPI with a zero
+  session budget so an accidental odds call raises instead of spending.
+
+  A LaunchAgent and not the cron in deploy/crontab.txt, because cron on macOS
+  does not fire a run missed while the machine was asleep and
+  StartCalendarInterval does, at the next wake. A shut laptop at 09:05 is the
+  normal case, and a watcher that skips those days is worse than none: its
+  silence is indistinguishable from "no news".
+
+  Run through `bash -c` with an explicit PATH and `timeout` rather than calling
+  python directly. Two reasons, both learned here on 2026-08-30:
+
+    1. launchd gives a job a minimal PATH that does NOT include /opt/homebrew/bin.
+       A bare `timeout` or `uv` in a job script is "command not found".
+    2. The first launchd invocation of /opt/homebrew/bin/python3 on this machine
+       hung indefinitely before executing a line of the script — stuck in
+       interpreter startup, no network socket ever opened. It has not recurred,
+       and plain `python3 -c` under launchd works now, so the cause was
+       most likely a one-time first-launch verification of the framework rather
+       than anything in this repo. `timeout` is here so that if it does recur
+       the run dies at five minutes and leaves a 124 in the log, instead of a
+       process sitting in `state = running` forever while the watcher appears
+       healthy and reports nothing.
+
+  Install:
+    cp deploy/com.arbdesk.season.plist ~/Library/LaunchAgents/
+    launchctl load ~/Library/LaunchAgents/com.arbdesk.season.plist
+
+  Run once now:            launchctl start com.arbdesk.season
+  Stop:                    launchctl unload ~/Library/LaunchAgents/com.arbdesk.season.plist
+  Confirm registered:      launchctl list | grep arbdesk
+  Read the last run:       tail -20 season.log
+-->
+<plist version="1.0">
+<dict>
+    <key>Label</key>
+    <string>com.arbdesk.season</string>
+
+    <key>ProgramArguments</key>
+    <array>
+        <string>/bin/bash</string>
+        <string>-c</string>
+        <string>export PATH=/opt/homebrew/bin:/usr/bin:/bin
+cd /Users/rijulkhunger/Downloads/arb-tool || exit 1
+echo "--- $(date '+%Y-%m-%d %H:%M:%S %Z') season watch ---"
+timeout 300 /opt/homebrew/bin/python3 season.py
+rc=$?
+[ $rc -eq 124 ] &amp;&amp; echo "TIMED OUT after 300s — interpreter or network stalled"
+echo "--- exit $rc ---"</string>
+    </array>
+
+    <!-- /tmp, not the repo. launchd starts bash in WorkingDirectory before the
+         script runs, and bash's startup getcwd() cannot walk out of ~/Downloads
+         under macOS privacy protection — it prints two "Operation not
+         permitted" lines into the log on every run. The script cd's to the repo
+         itself, after the shell is up, which succeeds. -->
+    <key>WorkingDirectory</key>
+    <string>/tmp</string>
+
+    <!-- 09:05 rather than 09:00: repo-guard already holds 09:00, and two jobs
+         waking the machine on the same minute interleaves their logs. -->
+    <key>StartCalendarInterval</key>
+    <dict>
+        <key>Hour</key>   <integer>9</integer>
+        <key>Minute</key> <integer>5</integer>
+    </dict>
+
+    <!-- RunAtLoad off. Loading the agent is not news, and a report on every
+         reboot trains you to ignore the ones that matter. -->
+    <key>RunAtLoad</key>
+    <false/>
+
+    <key>StandardOutPath</key>
+    <string>/Users/rijulkhunger/Downloads/arb-tool/season.log</string>
+    <key>StandardErrorPath</key>
+    <string>/Users/rijulkhunger/Downloads/arb-tool/season.log</string>
+
+    <key>ProcessType</key>   <string>Background</string>
+    <key>LowPriorityIO</key> <true/>
+</dict>
+</plist>

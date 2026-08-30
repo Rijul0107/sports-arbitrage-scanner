@@ -12,17 +12,23 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 import config, alert
 from arbtool.scan import Opportunity, assess_event
 from watch import demo_events
+from tests.fixture_config import FIXTURE_CFG
 
 
 def demo_opps():
     # assess_event returns a list: one entry per market in the event, because
     # totals and spreads carry a separate market per line.
+    #
+    # Staked under FIXTURE_CFG, not the live config: profit scales with stake,
+    # and a production stake change must not decide whether the alerting tests
+    # below have anything to assert on. See tests/fixture_config.py.
     return [o for ev in demo_events()
-            for o in assess_event(ev, "rugbyleague_nrl", "NRL (demo)", config)]
+            for o in assess_event(ev, "rugbyleague_nrl", "NRL (demo)", FIXTURE_CFG)]
 
 
 def playable():
-    return [o for o in demo_opps() if o.placeable and o.profit >= config.MIN_PROFIT]
+    return [o for o in demo_opps()
+            if o.placeable and o.profit >= FIXTURE_CFG.MIN_PROFIT]
 
 
 class TestSignatureIdentity(unittest.TestCase):
@@ -481,7 +487,7 @@ class TestLegContext(unittest.TestCase):
         msg = alert.build_messages(hits, config)[0]
         arb = hits[0].arb
         for o in arb.outcomes:
-            self.assertEqual(arb.legs[o].stake % config.STAKE_INCREMENT, 0)
+            self.assertEqual(arb.legs[o].stake % FIXTURE_CFG.STAKE_INCREMENT, 0)
             self.assertIn(f"stake ${arb.legs[o].stake:,.0f}</b>", msg)
         self.assertNotIn(".00</b>", msg)
 

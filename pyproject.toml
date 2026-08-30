@@ -1,0 +1,44 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "arb-desk"
+version = "1.0.0"
+description = "Sports betting arbitrage scanner and backtester for Australian bookmakers"
+readme = "README.md"
+requires-python = ">=3.10"
+license = { text = "MIT" }
+authors = [{ name = "Rijul Khunger" }]
+keywords = ["arbitrage", "sports-betting", "odds", "backtesting", "quantitative"]
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "Topic :: Office/Business :: Financial :: Investment",
+    "Topic :: Scientific/Engineering :: Information Analysis",
+]
+
+# No runtime dependencies, deliberately. The whole tool runs on the standard
+# library: urllib for the API, sqlite3 for the board log, http.server for the
+# dashboard, zoneinfo for the scan window. That was a constraint from the first
+# commit and it is why the thing deployed to a $4 droplet with `git pull` and
+# no virtualenv. Adding requests or pandas here would buy very little and cost
+# the property that makes it easy to run.
+dependencies = []
+
+[project.optional-dependencies]
+dev = ["pytest>=7.0"]
+
+[project.scripts]
+arb = "arbtool.cli:main"
+
+[project.urls]
+Repository = "https://github.com/Rijul0107/arb-desk"
+
+[tool.hatch.build.targets.wheel]
+packages = ["arbtool"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+# The repo is run from its root: config.py, alert.py and the other entry points
+# are top-level modules, not package members, and the tests import them directly.
+pythonpath = ["."]

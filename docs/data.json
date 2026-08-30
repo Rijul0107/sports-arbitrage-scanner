@@ -1,0 +1,1446 @@
+{
+ "static_export": true,
+ "generated_from": {
+  "window": [
+   "2026-08-12T06:00:09+00:00",
+   "2026-08-29T22:30:12+00:00"
+  ],
+  "boards_logged": 115583,
+  "note": "Real odds recorded by the scanner in this window. No bets were placed. Sorted by margin, so this is the best of what was found, not a typical minute."
+ },
+ "books": [
+  "Bet Right",
+  "Betfair",
+  "Betr",
+  "Dabble AU",
+  "Ladbrokes",
+  "Neds",
+  "PlayUp",
+  "PointsBet (AU)",
+  "SportsBet",
+  "TAB",
+  "TABtouch",
+  "Unibet"
+ ],
+ "commission": {
+  "SportsBet": 0.0,
+  "Ladbrokes": 0.0,
+  "PlayUp": 0.0,
+  "Betr": 0.0,
+  "Unibet": 0.0,
+  "Bet Right": 0.0,
+  "Dabble AU": 0.0
+ },
+ "credits_remaining": null,
+ "credits_spent": 0,
+ "fetched_at": "2026-08-29T22:30:12+00:00",
+ "poll_cost": 0,
+ "auto": false,
+ "games": [
+  {
+   "id": "db94bf2c5ee7c2da16fa70d1e86472e1:h2h:",
+   "sport": "ATP US Open",
+   "home": "Kamil Majchrzak",
+   "away": "Hamad Medjedovic",
+   "starts_in_min": 3180,
+   "market": "",
+   "outcomes": [
+    "Hamad Medjedovic",
+    "Kamil Majchrzak"
+   ],
+   "odds": {
+    "SportsBet": {
+     "Hamad Medjedovic": 1.9,
+     "Kamil Majchrzak": 1.9
+    },
+    "PlayUp": {
+     "Hamad Medjedovic": 2.5,
+     "Kamil Majchrzak": 1.52
+    },
+    "Betr": {
+     "Hamad Medjedovic": 1.98,
+     "Kamil Majchrzak": 1.8
+    },
+    "Unibet": {
+     "Hamad Medjedovic": 2.02,
+     "Kamil Majchrzak": 1.78
+    }
+   },
+   "ages": {
+    "Unibet": 72,
+    "PlayUp": 3,
+    "Betr": 3,
+    "SportsBet": 73
+   }
+  },
+  {
+   "id": "7d03df008d15f138b3726ef4b85c983f:h2h:",
+   "sport": "MLB",
+   "home": "Chicago White Sox",
+   "away": "Cincinnati Reds",
+   "starts_in_min": 1061,
+   "market": "",
+   "outcomes": [
+    "Chicago White Sox",
+    "Cincinnati Reds"
+   ],
+   "odds": {
+    "SportsBet": {
+     "Chicago White Sox": 1.72,
+     "Cincinnati Reds": 2.1
+    },
+    "Ladbrokes": {
+     "Chicago White Sox": 1.73,
+     "Cincinnati Reds": 2.1
+    },
+    "Neds": {
+     "Chicago White Sox": 1.73,
+     "Cincinnati Reds": 2.1
+    },
+    "PointsBet (AU)": {
+     "Chicago White Sox": 1.74,
+     "Cincinnati Reds": 2.15
+    },
+    "PlayUp": {
+     "Chicago White Sox": 1.72,
+     "Cincinnati Reds": 2.12
+    },
+    "Betr": {
+     "Chicago White Sox": 1.73,
+     "Cincinnati Reds": 2.1
+    },
+    "Unibet": {
+     "Chicago White Sox": 2.16,
+     "Cincinnati Reds": 1.71
+    },
+    "TABtouch": {
+     "Chicago White Sox": 2.15,
+     "Cincinnati Reds": 1.7
+    },
+    "Bet Right": {
+     "Chicago White Sox": 1.72,
+     "Cincinnati Reds": 2.14
+    }
+   },
+   "ages": {
+    "SportsBet": 48,
+    "PointsBet (AU)": 28,
+    "Bet Right": 28,
+    "Betr": 7,
+    "PlayUp": 26,
+    "Neds": 29,
+    "Ladbrokes": 48,
+    "TABtouch": 29,
+    "Unibet": 8
+   }
+  },
+  {
+   "id": "5024f199f765533dc9d6fd0356f9f757:h2h:",
+   "sport": "NRL",
+   "home": "Gold Coast Titans",
+   "away": "Cronulla Sutherland Sharks",
+   "starts_in_min": 11310,
+   "market": "",
+   "outcomes": [
+    "Cronulla Sutherland Sharks",
+    "Gold Coast Titans"
+   ],
+   "odds": {
+    "SportsBet": {
+     "Cronulla Sutherland Sharks": 1.53,
+     "Gold Coast Titans": 2.51
+    },
+    "PointsBet (AU)": {
+     "Cronulla Sutherland Sharks": 1.28,
+     "Gold Coast Titans": 3.6
+    }
+   },
+   "ages": {
+    "SportsBet": 45,
+    "PointsBet (AU)": 47
+   }
+  },
+  {
+   "id": "b73b89c85e8d22646f98b7193f2e5915:h2h:",
+   "sport": "NRLW",
+   "home": "Newcastle Knights",
+   "away": "Canberra Raiders",
+   "starts_in_min": 20,
+   "market": "",
+   "outcomes": [
+    "Canberra Raiders",
+    "Newcastle Knights"
+   ],
+   "odds": {
+    "SportsBet": {
+     "Canberra Raiders": 1.88,
+     "Newcastle Knights": 1.92
+    },
+    "TAB": {
+     "Canberra Raiders": 2.1,
+     "Newcastle Knights": 1.74
+    },
+    "Ladbrokes": {
+     "Canberra Raiders": 1.9,
+     "Newcastle Knights": 1.9
+    },
+    "Neds": {
+     "Canberra Raiders": 1.9,
+     "Newcastle Knights": 1.9
+    },
+    "PlayUp": {
+     "Canberra Raiders": 2.1,
+     "Newcastle Knights": 1.72
+    },
+    "Betr": {
+     "Canberra Raiders": 1.92,
+     "Newcastle Knights": 1.85
+    },
+    "Unibet": {
+     "Canberra Raiders": 1.93,
+     "Newcastle Knights": 1.83
+    },
+    "TABtouch": {
+     "Canberra Raiders": 1.93,
+     "Newcastle Knights": 1.83
+    },
+    "Bet Right": {
+     "Canberra Raiders": 2.04,
+     "Newcastle Knights": 1.76
+    },
+    "Dabble AU": {
+     "Canberra Raiders": 2.15,
+     "Newcastle Knights": 1.7
+    },
+    "Betfair": {
+     "Canberra Raiders": 1.01,
+     "Newcastle Knights": 2.18
+    }
+   },
+   "ages": {
+    "SportsBet": 54,
+    "TAB": 113,
+    "PlayUp": 35,
+    "Ladbrokes": 55,
+    "Neds": 55,
+    "Betr": 55,
+    "Bet Right": 55,
+    "Unibet": 54,
+    "TABtouch": 54,
+    "Dabble AU": 55,
+    "Betfair": 15
+   }
+  },
+  {
+   "id": "05137c674f3dd70bbd1107328f5159d6:h2h:",
+   "sport": "NRL",
+   "home": "New Zealand Warriors",
+   "away": "Newcastle Knights",
+   "starts_in_min": 1500,
+   "market": "",
+   "outcomes": [
+    "New Zealand Warriors",
+    "Newcastle Knights"
+   ],
+   "odds": {
+    "SportsBet": {
+     "Newcastle Knights": 3.56,
+     "New Zealand Warriors": 1.3
+    },
+    "Ladbrokes": {
+     "Newcastle Knights": 3.9,
+     "New Zealand Warriors": 1.26
+    },
+    "PlayUp": {
+     "Newcastle Knights": 3.7,
+     "New Zealand Warriors": 1.28
+    },
+    "Betr": {
+     "Newcastle Knights": 3.2,
+     "New Zealand Warriors": 1.36
+    },
+    "Unibet": {
+     "Newcastle Knights": 3.35,
+     "New Zealand Warriors": 1.32
+    },
+    "Bet Right": {
+     "Newcastle Knights": 2.75,
+     "New Zealand Warriors": 1.45
+    }
+   },
+   "ages": {
+    "SportsBet": 28,
+    "Ladbrokes": 48,
+    "PlayUp": 2,
+    "Unibet": 27,
+    "Betr": 48,
+    "Bet Right": 3
+   }
+  },
+  {
+   "id": "70b9a39a05a83f14d55b30a01b17396f:spreads:Line 1.5",
+   "sport": "MLB",
+   "home": "Los Angeles Dodgers",
+   "away": "Milwaukee Brewers",
+   "starts_in_min": 945,
+   "market": "Line 1.5",
+   "outcomes": [
+    "Los Angeles Dodgers +1.5",
+    "Milwaukee Brewers -1.5"
+   ],
+   "odds": {
+    "SportsBet": {
+     "Los Angeles Dodgers +1.5": 1.64,
+     "Milwaukee Brewers -1.5": 2.26
+    },
+    "PointsBet (AU)": {
+     "Los Angeles Dodgers +1.5": 1.95,
+     "Milwaukee Brewers -1.5": 1.87
+    },
+    "PlayUp": {
+     "Los Angeles Dodgers +1.5": 1.65,
+     "Milwaukee Brewers -1.5": 2.25
+    }
+   },
+   "ages": {
+    "SportsBet": 61,
+    "Bet Right": 61,
+    "PointsBet (AU)": 42,
+    "Betr": 41,
+    "PlayUp": 61,
+    "Neds": 41,
+    "Ladbrokes": 82,
+    "Unibet": 41,
+    "TABtouch": 42,
+    "Dabble AU": 58,
+    "TAB": 117,
+    "Betfair": 20
+   }
+  },
+  {
+   "id": "6d1926e3b2f3f3ae87de4c6ce36d6f72:h2h:",
+   "sport": "AFL Women's",
+   "home": "Adelaide Crows",
+   "away": "West Coast Eagles",
+   "starts_in_min": 4655,
+   "market": "",
+   "outcomes": [
+    "Adelaide Crows",
+    "West Coast Eagles"
+   ],
+   "odds": {
+    "SportsBet": {
+     "Adelaide Crows": 1.17,
+     "West Coast Eagles": 4.85
+    },
+    "Ladbrokes": {
+     "Adelaide Crows": 1.24,
+     "West Coast Eagles": 3.8
+    },
+    "PlayUp": {
+     "Adelaide Crows": 1.22,
+     "West Coast Eagles": 4.15
+    },
+    "Betr": {
+     "Adelaide Crows": 1.22,
+     "West Coast Eagles": 4.0
+    },
+    "Unibet": {
+     "Adelaide Crows": 1.26,
+     "West Coast Eagles": 3.7
+    },
+    "Bet Right": {
+     "Adelaide Crows": 1.27,
+     "West Coast Eagles": 3.9
+    },
+    "Dabble AU": {
+     "Adelaide Crows": 1.33,
+     "West Coast Eagles": 3.25
+    }
+   },
+   "ages": {
+    "SportsBet": 44,
+    "Bet Right": 67,
+    "Ladbrokes": 44,
+    "Dabble AU": 43,
+    "Unibet": 66,
+    "Betr": 13,
+    "PlayUp": 42
+   }
+  },
+  {
+   "id": "57c582a2253cde6597006683bf408d81:h2h:",
+   "sport": "AFL Women's",
+   "home": "Carlton Blues",
+   "away": "Adelaide Crows",
+   "starts_in_min": 1190,
+   "market": "",
+   "outcomes": [
+    "Adelaide Crows",
+    "Carlton Blues"
+   ],
+   "odds": {
+    "SportsBet": {
+     "Adelaide Crows": 2.31,
+     "Carlton Blues": 1.59
+    },
+    "Ladbrokes": {
+     "Adelaide Crows": 2.35,
+     "Carlton Blues": 1.57
+    },
+    "PlayUp": {
+     "Adelaide Crows": 2.2,
+     "Carlton Blues": 1.65
+    },
+    "Betr": {
+     "Adelaide Crows": 2.2,
+     "Carlton Blues": 1.63
+    },
+    "Unibet": {
+     "Adelaide Crows": 2.04,
+     "Carlton Blues": 1.75
+    },
+    "Bet Right": {
+     "Adelaide Crows": 2.5,
+     "Carlton Blues": 1.5
+    },
+    "Dabble AU": {
+     "Adelaide Crows": 2.55,
+     "Carlton Blues": 1.52
+    }
+   },
+   "ages": {
+    "SportsBet": 9,
+    "Bet Right": 29,
+    "Dabble AU": 8,
+    "PlayUp": 8,
+    "Unibet": 29,
+    "Betr": 30,
+    "Ladbrokes": 9
+   }
+  },
+  {
+   "id": "fddef08113eda1177d409fbaa1ae0337:h2h:",
+   "sport": "AFL Women's",
+   "home": "GWS GIANTS",
+   "away": "Port Adelaide Power",
+   "starts_in_min": 5585,
+   "market": "",
+   "outcomes": [
+    "GWS GIANTS",
+    "Port Adelaide Power"
+   ],
+   "odds": {
+    "SportsBet": {
+     "GWS GIANTS": 3.85,
+     "Port Adelaide Power": 1.25
+    },
+    "Ladbrokes": {
+     "GWS GIANTS": 4.0,
+     "Port Adelaide Power": 1.22
+    },
+    "PlayUp": {
+     "GWS GIANTS": 3.6,
+     "Port Adelaide Power": 1.28
+    },
+    "Betr": {
+     "GWS GIANTS": 3.6,
+     "Port Adelaide Power": 1.26
+    },
+    "Unibet": {
+     "GWS GIANTS": 3.7,
+     "Port Adelaide Power": 1.26
+    },
+    "Bet Right": {
+     "GWS GIANTS": 3.55,
+     "Port Adelaide Power": 1.3
+    },
+    "Dabble AU": {
+     "GWS GIANTS": 5.0,
+     "Port Adelaide Power": 1.17
+    }
+   },
+   "ages": {
+    "SportsBet": 20,
+    "Bet Right": 20,
+    "Ladbrokes": 20,
+    "Dabble AU": 21,
+    "Unibet": 19,
+    "PlayUp": 19,
+    "Betr": 21
+   }
+  },
+  {
+   "id": "edf7586ff916bb2d7fa9599f1d6d9e42:h2h:",
+   "sport": "NFL Preseason",
+   "home": "Tampa Bay Buccaneers",
+   "away": "Kansas City Chiefs",
+   "starts_in_min": 7140,
+   "market": "",
+   "outcomes": [
+    "Kansas City Chiefs",
+    "Tampa Bay Buccaneers"
+   ],
+   "odds": {
+    "SportsBet": {
+     "Kansas City Chiefs": 3.08,
+     "Tampa Bay Buccaneers": 1.38
+    },
+    "Ladbrokes": {
+     "Kansas City Chiefs": 2.5,
+     "Tampa Bay Buccaneers": 1.55
+    },
+    "PlayUp": {
+     "Kansas City Chiefs": 2.45,
+     "Tampa Bay Buccaneers": 1.55
+    }
+   },
+   "ages": {
+    "SportsBet": 17,
+    "PlayUp": 56,
+    "Ladbrokes": 55
+   }
+  },
+  {
+   "id": "a92426daf18bb4819680549430ac3a8e:h2h:",
+   "sport": "AFL Women's",
+   "home": "Western Bulldogs",
+   "away": "Richmond Tigers",
+   "starts_in_min": 1865,
+   "market": "",
+   "outcomes": [
+    "Richmond Tigers",
+    "Western Bulldogs"
+   ],
+   "odds": {
+    "SportsBet": {
+     "Richmond Tigers": 2.55,
+     "Western Bulldogs": 1.5
+    },
+    "Ladbrokes": {
+     "Richmond Tigers": 2.9,
+     "Western Bulldogs": 1.4
+    },
+    "PlayUp": {
+     "Richmond Tigers": 2.75,
+     "Western Bulldogs": 1.44
+    },
+    "Betr": {
+     "Richmond Tigers": 2.65,
+     "Western Bulldogs": 1.44
+    },
+    "Unibet": {
+     "Richmond Tigers": 2.85,
+     "Western Bulldogs": 1.4
+    },
+    "Bet Right": {
+     "Richmond Tigers": 2.72,
+     "Western Bulldogs": 1.46
+    },
+    "Dabble AU": {
+     "Richmond Tigers": 2.45,
+     "Western Bulldogs": 1.6
+    }
+   },
+   "ages": {
+    "SportsBet": 31,
+    "Bet Right": 54,
+    "Betr": 54,
+    "Dabble AU": 54,
+    "PlayUp": 30,
+    "Unibet": 53,
+    "Ladbrokes": 55
+   }
+  },
+  {
+   "id": "32027bba340341eeca8c5cf065d47e9e:h2h:",
+   "sport": "ATP US Open",
+   "home": "Matteo Arnaldi",
+   "away": "James Duckworth",
+   "starts_in_min": 3630,
+   "market": "",
+   "outcomes": [
+    "James Duckworth",
+    "Matteo Arnaldi"
+   ],
+   "odds": {
+    "SportsBet": {
+     "James Duckworth": 2.0,
+     "Matteo Arnaldi": 1.77
+    },
+    "PlayUp": {
+     "James Duckworth": 2.15,
+     "Matteo Arnaldi": 1.68
+    },
+    "Betr": {
+     "James Duckworth": 1.9,
+     "Matteo Arnaldi": 1.87
+    },
+    "Unibet": {
+     "James Duckworth": 1.82,
+     "Matteo Arnaldi": 1.98
+    }
+   },
+   "ages": {
+    "Unibet": 43,
+    "PlayUp": 81,
+    "Betr": 43,
+    "SportsBet": 4
+   }
+  },
+  {
+   "id": "4301448642d2f6e89460a4e92ff7d1b7:h2h:",
+   "sport": "ATP US Open",
+   "home": "Marin Cilic",
+   "away": "Andrey Rublev",
+   "starts_in_min": 3120,
+   "market": "",
+   "outcomes": [
+    "Andrey Rublev",
+    "Marin Cilic"
+   ],
+   "odds": {
+    "SportsBet": {
+     "Andrey Rublev": 1.32,
+     "Marin Cilic": 3.2
+    },
+    "PlayUp": {
+     "Andrey Rublev": 1.22,
+     "Marin Cilic": 4.1
+    },
+    "Betr": {
+     "Andrey Rublev": 1.35,
+     "Marin Cilic": 3.15
+    },
+    "Unibet": {
+     "Andrey Rublev": 1.37,
+     "Marin Cilic": 3.1
+    }
+   },
+   "ages": {
+    "Unibet": 36,
+    "PlayUp": 9,
+    "Betr": 35,
+    "SportsBet": 35
+   }
+  },
+  {
+   "id": "27def718860760ba0efe0c84de010eef:h2h:",
+   "sport": "AFL",
+   "home": "Western Bulldogs",
+   "away": "Carlton Blues",
+   "starts_in_min": 4125,
+   "market": "",
+   "outcomes": [
+    "Carlton Blues",
+    "Western Bulldogs"
+   ],
+   "odds": {
+    "SportsBet": {
+     "Carlton Blues": 1.25,
+     "Western Bulldogs": 4.0
+    },
+    "TAB": {
+     "Carlton Blues": 1.27,
+     "Western Bulldogs": 3.8
+    },
+    "Ladbrokes": {
+     "Carlton Blues": 1.28,
+     "Western Bulldogs": 3.6
+    },
+    "Neds": {
+     "Carlton Blues": 1.28,
+     "Western Bulldogs": 3.6
+    },
+    "PointsBet (AU)": {
+     "Carlton Blues": 1.26,
+     "Western Bulldogs": 3.8
+    },
+    "PlayUp": {
+     "Carlton Blues": 1.38,
+     "Western Bulldogs": 3.1
+    },
+    "Betr": {
+     "Carlton Blues": 1.25,
+     "Western Bulldogs": 4.0
+    },
+    "Unibet": {
+     "Carlton Blues": 1.33,
+     "Western Bulldogs": 3.25
+    },
+    "TABtouch": {
+     "Carlton Blues": 1.33,
+     "Western Bulldogs": 3.35
+    },
+    "Bet Right": {
+     "Carlton Blues": 1.26,
+     "Western Bulldogs": 3.75
+    },
+    "Dabble AU": {
+     "Carlton Blues": 1.36,
+     "Western Bulldogs": 2.95
+    },
+    "Betfair": {
+     "Carlton Blues": 1.22,
+     "Western Bulldogs": 3.4
+    }
+   },
+   "ages": {
+    "SportsBet": 20,
+    "TAB": 62,
+    "Betfair": 21,
+    "Neds": 63,
+    "Ladbrokes": 62,
+    "Bet Right": 63,
+    "Betr": 42,
+    "PointsBet (AU)": 19,
+    "PlayUp": 379,
+    "Dabble AU": 62,
+    "TABtouch": 42,
+    "Unibet": 41
+   }
+  },
+  {
+   "id": "93cdd8e4ade5697cfccf42ee42c4d207:h2h:",
+   "sport": "NBA",
+   "home": "Miami Heat",
+   "away": "Minnesota Timberwolves",
+   "starts_in_min": 93760,
+   "market": "",
+   "outcomes": [
+    "Miami Heat",
+    "Minnesota Timberwolves"
+   ],
+   "odds": {
+    "SportsBet": {
+     "Miami Heat": 1.92,
+     "Minnesota Timberwolves": 1.92
+    },
+    "Ladbrokes": {
+     "Miami Heat": 1.68,
+     "Minnesota Timberwolves": 2.2
+    }
+   },
+   "ages": {
+    "SportsBet": 56,
+    "Ladbrokes": 16
+   }
+  },
+  {
+   "id": "5e66d862851eb7bb650f373398b2905e:h2h:",
+   "sport": "NRLW",
+   "home": "Brisbane Broncos",
+   "away": "Sydney Roosters",
+   "starts_in_min": 15,
+   "market": "",
+   "outcomes": [
+    "Brisbane Broncos",
+    "Sydney Roosters"
+   ],
+   "odds": {
+    "SportsBet": {
+     "Brisbane Broncos": 2.5,
+     "Sydney Roosters": 1.49
+    },
+    "TAB": {
+     "Brisbane Broncos": 3.15,
+     "Sydney Roosters": 1.37
+    },
+    "Ladbrokes": {
+     "Brisbane Broncos": 2.65,
+     "Sydney Roosters": 1.48
+    },
+    "Neds": {
+     "Brisbane Broncos": 2.65,
+     "Sydney Roosters": 1.48
+    },
+    "PlayUp": {
+     "Brisbane Broncos": 3.0,
+     "Sydney Roosters": 1.4
+    },
+    "Betr": {
+     "Brisbane Broncos": 2.9,
+     "Sydney Roosters": 1.4
+    },
+    "Unibet": {
+     "Brisbane Broncos": 2.55,
+     "Sydney Roosters": 1.49
+    },
+    "TABtouch": {
+     "Brisbane Broncos": 2.55,
+     "Sydney Roosters": 1.49
+    },
+    "Bet Right": {
+     "Brisbane Broncos": 2.8,
+     "Sydney Roosters": 1.44
+    },
+    "Dabble AU": {
+     "Brisbane Broncos": 2.55,
+     "Sydney Roosters": 1.52
+    },
+    "Betfair": {
+     "Brisbane Broncos": 2.94,
+     "Sydney Roosters": 1.41
+    }
+   },
+   "ages": {
+    "SportsBet": 17,
+    "Betr": 17,
+    "Bet Right": 59,
+    "TAB": 216,
+    "PlayUp": 17,
+    "Ladbrokes": 17,
+    "Neds": 17,
+    "Unibet": 58,
+    "TABtouch": 17,
+    "Dabble AU": 59,
+    "Betfair": 16
+   }
+  },
+  {
+   "id": "5b7899ad452b28ec86d513b2cde64fdb:h2h:",
+   "sport": "AFL Women's",
+   "home": "GWS GIANTS",
+   "away": "West Coast Eagles",
+   "starts_in_min": 4185,
+   "market": "",
+   "outcomes": [
+    "GWS GIANTS",
+    "West Coast Eagles"
+   ],
+   "odds": {
+    "SportsBet": {
+     "GWS GIANTS": 4.15,
+     "West Coast Eagles": 1.22
+    },
+    "TAB": {
+     "GWS GIANTS": 3.3,
+     "West Coast Eagles": 1.32
+    },
+    "Ladbrokes": {
+     "GWS GIANTS": 3.1,
+     "West Coast Eagles": 1.36
+    },
+    "Neds": {
+     "GWS GIANTS": 3.1,
+     "West Coast Eagles": 1.36
+    },
+    "PlayUp": {
+     "GWS GIANTS": 3.6,
+     "West Coast Eagles": 1.28
+    },
+    "Betr": {
+     "GWS GIANTS": 3.7,
+     "West Coast Eagles": 1.25
+    },
+    "Unibet": {
+     "GWS GIANTS": 3.8,
+     "West Coast Eagles": 1.24
+    },
+    "TABtouch": {
+     "GWS GIANTS": 3.8,
+     "West Coast Eagles": 1.24
+    },
+    "Bet Right": {
+     "GWS GIANTS": 3.85,
+     "West Coast Eagles": 1.26
+    },
+    "Dabble AU": {
+     "GWS GIANTS": 3.85,
+     "West Coast Eagles": 1.25
+    },
+    "Betfair": {
+     "GWS GIANTS": 2.92,
+     "West Coast Eagles": 1.29
+    }
+   },
+   "ages": {
+    "SportsBet": 23,
+    "Bet Right": 43,
+    "Dabble AU": 43,
+    "Unibet": 21,
+    "TABtouch": 43,
+    "Betfair": 2,
+    "TAB": 39,
+    "Ladbrokes": 43,
+    "Neds": 43,
+    "PlayUp": 42,
+    "Betr": 23
+   }
+  },
+  {
+   "id": "93755abc7573c7a706c6377fe04fa6f3:h2h:",
+   "sport": "ATP Cincinnati Open",
+   "home": "Yannick Hanfmann",
+   "away": "Arthur Fils",
+   "starts_in_min": 750,
+   "market": "",
+   "outcomes": [
+    "Arthur Fils",
+    "Yannick Hanfmann"
+   ],
+   "odds": {
+    "TAB": {
+     "Arthur Fils": 1.36,
+     "Yannick Hanfmann": 3.0
+    },
+    "Ladbrokes": {
+     "Arthur Fils": 1.35,
+     "Yannick Hanfmann": 3.05
+    },
+    "Neds": {
+     "Arthur Fils": 1.35,
+     "Yannick Hanfmann": 3.05
+    },
+    "PointsBet (AU)": {
+     "Arthur Fils": 1.33,
+     "Yannick Hanfmann": 3.2
+    },
+    "PlayUp": {
+     "Arthur Fils": 1.38,
+     "Yannick Hanfmann": 3.0
+    },
+    "Betr": {
+     "Arthur Fils": 1.33,
+     "Yannick Hanfmann": 3.25
+    },
+    "Unibet": {
+     "Arthur Fils": 1.33,
+     "Yannick Hanfmann": 3.35
+    },
+    "TABtouch": {
+     "Arthur Fils": 1.33,
+     "Yannick Hanfmann": 3.35
+    },
+    "Betfair": {
+     "Arthur Fils": 1.29,
+     "Yannick Hanfmann": 4.1
+    }
+   },
+   "ages": {
+    "Unibet": 9,
+    "Neds": 10,
+    "Ladbrokes": 29,
+    "PlayUp": 8,
+    "Betr": 49,
+    "TAB": 110,
+    "PointsBet (AU)": 69,
+    "Betfair": 27,
+    "TABtouch": 48
+   }
+  },
+  {
+   "id": "5d30f10b08e2450aa2271da247559fbe:h2h:",
+   "sport": "ATP Cincinnati Open",
+   "home": "Terence Atmane",
+   "away": "Tomas Martin Etcheverry",
+   "starts_in_min": 470,
+   "market": "",
+   "outcomes": [
+    "Terence Atmane",
+    "Tomas Martin Etcheverry"
+   ],
+   "odds": {
+    "SportsBet": {
+     "Terence Atmane": 1.54,
+     "Tomas Martin Etcheverry": 2.36
+    },
+    "TAB": {
+     "Terence Atmane": 1.65,
+     "Tomas Martin Etcheverry": 2.15
+    },
+    "Ladbrokes": {
+     "Terence Atmane": 1.55,
+     "Tomas Martin Etcheverry": 2.35
+    },
+    "Neds": {
+     "Terence Atmane": 1.55,
+     "Tomas Martin Etcheverry": 2.35
+    },
+    "PointsBet (AU)": {
+     "Terence Atmane": 1.56,
+     "Tomas Martin Etcheverry": 2.4
+    },
+    "PlayUp": {
+     "Terence Atmane": 1.68,
+     "Tomas Martin Etcheverry": 2.15
+    },
+    "Betr": {
+     "Terence Atmane": 1.53,
+     "Tomas Martin Etcheverry": 2.45
+    },
+    "Unibet": {
+     "Terence Atmane": 1.55,
+     "Tomas Martin Etcheverry": 2.45
+    },
+    "TABtouch": {
+     "Terence Atmane": 1.55,
+     "Tomas Martin Etcheverry": 2.45
+    },
+    "Betfair": {
+     "Terence Atmane": 1.59,
+     "Tomas Martin Etcheverry": 2.68
+    }
+   },
+   "ages": {
+    "Unibet": 59,
+    "TABtouch": 16,
+    "PointsBet (AU)": 59,
+    "Betr": 59,
+    "PlayUp": 57,
+    "Betfair": 14,
+    "TAB": 37,
+    "Ladbrokes": 15,
+    "Neds": 39,
+    "SportsBet": 38
+   }
+  },
+  {
+   "id": "c556e200cbabfaccf29ba1c7702a081b:h2h:",
+   "sport": "WTA Cincinnati Open",
+   "home": "Lois Boisson",
+   "away": "Belinda Bencic",
+   "starts_in_min": 1890,
+   "market": "",
+   "outcomes": [
+    "Belinda Bencic",
+    "Lois Boisson"
+   ],
+   "odds": {
+    "TAB": {
+     "Belinda Bencic": 1.32,
+     "Lois Boisson": 3.2
+    },
+    "PointsBet (AU)": {
+     "Belinda Bencic": 1.25,
+     "Lois Boisson": 3.9
+    },
+    "PlayUp": {
+     "Belinda Bencic": 1.33,
+     "Lois Boisson": 3.25
+    },
+    "Betr": {
+     "Belinda Bencic": 1.25,
+     "Lois Boisson": 3.85
+    },
+    "Unibet": {
+     "Belinda Bencic": 1.22,
+     "Lois Boisson": 4.35
+    },
+    "TABtouch": {
+     "Belinda Bencic": 1.22,
+     "Lois Boisson": 4.35
+    },
+    "Betfair": {
+     "Belinda Bencic": 1.1,
+     "Lois Boisson": 3.2
+    }
+   },
+   "ages": {
+    "Unibet": 9,
+    "PlayUp": 51,
+    "PointsBet (AU)": 9,
+    "TABtouch": 9,
+    "Betr": 8,
+    "Betfair": 5,
+    "TAB": 70
+   }
+  },
+  {
+   "id": "8cde6c248e3ef2cf491263061d0eab51:h2h:",
+   "sport": "MMA",
+   "home": "Jalin Turner",
+   "away": "Kau\u00ea Fernandes",
+   "starts_in_min": 1605,
+   "market": "",
+   "outcomes": [
+    "Jalin Turner",
+    "Kau\u00ea Fernandes"
+   ],
+   "odds": {
+    "SportsBet": {
+     "Jalin Turner": 1.78,
+     "Kau\u00ea Fernandes": 2.08
+    },
+    "Ladbrokes": {
+     "Jalin Turner": 1.82,
+     "Kau\u00ea Fernandes": 2.0
+    },
+    "PointsBet (AU)": {
+     "Jalin Turner": 1.85,
+     "Kau\u00ea Fernandes": 1.97
+    },
+    "PlayUp": {
+     "Jalin Turner": 1.65,
+     "Kau\u00ea Fernandes": 2.2
+    },
+    "Betr": {
+     "Jalin Turner": 1.84,
+     "Kau\u00ea Fernandes": 1.93
+    },
+    "Unibet": {
+     "Jalin Turner": 1.76,
+     "Kau\u00ea Fernandes": 2.07
+    },
+    "TABtouch": {
+     "Jalin Turner": 1.76,
+     "Kau\u00ea Fernandes": 2.07
+    },
+    "Bet Right": {
+     "Jalin Turner": 1.88,
+     "Kau\u00ea Fernandes": 1.92
+    },
+    "Betfair": {
+     "Jalin Turner": 1.87,
+     "Kau\u00ea Fernandes": 2.08
+    }
+   },
+   "ages": {
+    "PointsBet (AU)": 13,
+    "Betr": 57,
+    "PlayUp": 35,
+    "Unibet": 12,
+    "TABtouch": 56,
+    "SportsBet": 12,
+    "Ladbrokes": 56,
+    "Bet Right": 35,
+    "Betfair": 34
+   }
+  },
+  {
+   "id": "f340dd83c7f22d6d3fc46c960ad3975d:h2h:",
+   "sport": "AFL Women's",
+   "home": "Adelaide Crows",
+   "away": "Sydney Swans",
+   "starts_in_min": 6,
+   "market": "",
+   "outcomes": [
+    "Adelaide Crows",
+    "Sydney Swans"
+   ],
+   "odds": {
+    "SportsBet": {
+     "Adelaide Crows": 1.65,
+     "Sydney Swans": 2.2
+    },
+    "TAB": {
+     "Adelaide Crows": 1.62,
+     "Sydney Swans": 2.25
+    },
+    "Ladbrokes": {
+     "Adelaide Crows": 1.73,
+     "Sydney Swans": 2.05
+    },
+    "Neds": {
+     "Adelaide Crows": 1.73,
+     "Sydney Swans": 2.05
+    },
+    "PlayUp": {
+     "Adelaide Crows": 1.65,
+     "Sydney Swans": 2.2
+    },
+    "Betr": {
+     "Adelaide Crows": 1.65,
+     "Sydney Swans": 2.15
+    },
+    "Unibet": {
+     "Adelaide Crows": 1.75,
+     "Sydney Swans": 2.04
+    },
+    "TABtouch": {
+     "Adelaide Crows": 1.75,
+     "Sydney Swans": 2.04
+    },
+    "Bet Right": {
+     "Adelaide Crows": 1.62,
+     "Sydney Swans": 2.25
+    },
+    "Dabble AU": {
+     "Adelaide Crows": 1.7,
+     "Sydney Swans": 2.1
+    },
+    "Betfair": {
+     "Adelaide Crows": 1.64,
+     "Sydney Swans": 2.48
+    }
+   },
+   "ages": {
+    "SportsBet": 55,
+    "Bet Right": 54,
+    "Betr": 15,
+    "Betfair": 14,
+    "Unibet": 54,
+    "TABtouch": 55,
+    "TAB": 14,
+    "Dabble AU": 55,
+    "Ladbrokes": 15,
+    "Neds": 55,
+    "PlayUp": 15
+   }
+  },
+  {
+   "id": "1edfa5ceaa1ad2cb57df1c1b908731f6:h2h:",
+   "sport": "NFL",
+   "home": "Los Angeles Chargers",
+   "away": "Arizona Cardinals",
+   "starts_in_min": 42955,
+   "market": "",
+   "outcomes": [
+    "Arizona Cardinals",
+    "Los Angeles Chargers"
+   ],
+   "odds": {
+    "SportsBet": {
+     "Arizona Cardinals": 5.5,
+     "Los Angeles Chargers": 1.15
+    },
+    "TAB": {
+     "Arizona Cardinals": 4.85,
+     "Los Angeles Chargers": 1.18
+    },
+    "Ladbrokes": {
+     "Arizona Cardinals": 5.2,
+     "Los Angeles Chargers": 1.17
+    },
+    "Neds": {
+     "Arizona Cardinals": 5.2,
+     "Los Angeles Chargers": 1.17
+    },
+    "PointsBet (AU)": {
+     "Arizona Cardinals": 4.3,
+     "Los Angeles Chargers": 1.24
+    },
+    "PlayUp": {
+     "Arizona Cardinals": 4.6,
+     "Los Angeles Chargers": 1.2
+    },
+    "Betr": {
+     "Arizona Cardinals": 5.0,
+     "Los Angeles Chargers": 1.17
+    },
+    "Unibet": {
+     "Arizona Cardinals": 4.75,
+     "Los Angeles Chargers": 1.19
+    },
+    "Bet Right": {
+     "Arizona Cardinals": 4.75,
+     "Los Angeles Chargers": 1.19
+    },
+    "Betfair": {
+     "Arizona Cardinals": 5.1,
+     "Los Angeles Chargers": 1.2
+    }
+   },
+   "ages": {
+    "Unibet": 48,
+    "SportsBet": 26,
+    "Neds": 29,
+    "Ladbrokes": 51,
+    "TAB": 6,
+    "Bet Right": 7,
+    "PointsBet (AU)": 49,
+    "Betr": 50,
+    "PlayUp": 49,
+    "Betfair": 27
+   }
+  },
+  {
+   "id": "66d9cc413111b3332db235f34a92efc6:h2h:",
+   "sport": "AFL Women's",
+   "home": "Hawthorn Hawks",
+   "away": "Melbourne Demons",
+   "starts_in_min": 225,
+   "market": "",
+   "outcomes": [
+    "Hawthorn Hawks",
+    "Melbourne Demons"
+   ],
+   "odds": {
+    "SportsBet": {
+     "Hawthorn Hawks": 3.85,
+     "Melbourne Demons": 1.25
+    },
+    "TAB": {
+     "Hawthorn Hawks": 3.8,
+     "Melbourne Demons": 1.26
+    },
+    "Ladbrokes": {
+     "Hawthorn Hawks": 3.7,
+     "Melbourne Demons": 1.26
+    },
+    "Neds": {
+     "Hawthorn Hawks": 3.7,
+     "Melbourne Demons": 1.26
+    },
+    "PlayUp": {
+     "Hawthorn Hawks": 3.7,
+     "Melbourne Demons": 1.27
+    },
+    "Betr": {
+     "Hawthorn Hawks": 3.55,
+     "Melbourne Demons": 1.27
+    },
+    "Unibet": {
+     "Hawthorn Hawks": 3.5,
+     "Melbourne Demons": 1.29
+    },
+    "TABtouch": {
+     "Hawthorn Hawks": 3.5,
+     "Melbourne Demons": 1.29
+    },
+    "Bet Right": {
+     "Hawthorn Hawks": 3.65,
+     "Melbourne Demons": 1.28
+    },
+    "Dabble AU": {
+     "Hawthorn Hawks": 3.1,
+     "Melbourne Demons": 1.35
+    },
+    "Betfair": {
+     "Hawthorn Hawks": 4.2,
+     "Melbourne Demons": 1.29
+    }
+   },
+   "ages": {
+    "SportsBet": 43,
+    "TABtouch": 22,
+    "Unibet": 42,
+    "Bet Right": 22,
+    "Betr": 43,
+    "TAB": 1,
+    "Dabble AU": 22,
+    "Betfair": 2,
+    "Ladbrokes": 22,
+    "Neds": 22,
+    "PlayUp": 22
+   }
+  },
+  {
+   "id": "23fa20addebd0a27549bb5d96bf060d7:h2h:",
+   "sport": "WNBA",
+   "home": "Connecticut Sun",
+   "away": "New York Liberty",
+   "starts_in_min": 540,
+   "market": "",
+   "outcomes": [
+    "Connecticut Sun",
+    "New York Liberty"
+   ],
+   "odds": {
+    "SportsBet": {
+     "Connecticut Sun": 3.6,
+     "New York Liberty": 1.28
+    },
+    "TAB": {
+     "Connecticut Sun": 3.6,
+     "New York Liberty": 1.28
+    },
+    "Ladbrokes": {
+     "Connecticut Sun": 3.45,
+     "New York Liberty": 1.32
+    },
+    "Neds": {
+     "Connecticut Sun": 3.45,
+     "New York Liberty": 1.32
+    },
+    "Betr": {
+     "Connecticut Sun": 3.7,
+     "New York Liberty": 1.28
+    },
+    "Unibet": {
+     "Connecticut Sun": 3.65,
+     "New York Liberty": 1.29
+    },
+    "TABtouch": {
+     "Connecticut Sun": 3.65,
+     "New York Liberty": 1.29
+    },
+    "Bet Right": {
+     "Connecticut Sun": 3.7,
+     "New York Liberty": 1.28
+    },
+    "Betfair": {
+     "Connecticut Sun": 4.5,
+     "New York Liberty": 1.27
+    }
+   },
+   "ages": {
+    "SportsBet": 30,
+    "Betr": 29,
+    "Bet Right": 9,
+    "TABtouch": 50,
+    "Unibet": 50,
+    "Betfair": 10,
+    "TAB": 69,
+    "Neds": 31,
+    "Ladbrokes": 30
+   }
+  },
+  {
+   "id": "f551af92d39ffa1017a768094e863aba:h2h:",
+   "sport": "ATP Cincinnati Open",
+   "home": "Alexander Zverev",
+   "away": "Cameron Norrie",
+   "starts_in_min": 10,
+   "market": "",
+   "outcomes": [
+    "Alexander Zverev",
+    "Cameron Norrie"
+   ],
+   "odds": {
+    "SportsBet": {
+     "Alexander Zverev": 1.17,
+     "Cameron Norrie": 4.5
+    },
+    "TAB": {
+     "Alexander Zverev": 1.2,
+     "Cameron Norrie": 4.2
+    },
+    "Ladbrokes": {
+     "Alexander Zverev": 1.28,
+     "Cameron Norrie": 3.6
+    },
+    "Neds": {
+     "Alexander Zverev": 1.28,
+     "Cameron Norrie": 3.6
+    },
+    "PointsBet (AU)": {
+     "Alexander Zverev": 1.24,
+     "Cameron Norrie": 4.0
+    },
+    "PlayUp": {
+     "Alexander Zverev": 1.22,
+     "Cameron Norrie": 4.2
+    },
+    "Betr": {
+     "Alexander Zverev": 1.22,
+     "Cameron Norrie": 4.15
+    },
+    "Unibet": {
+     "Alexander Zverev": 1.23,
+     "Cameron Norrie": 4.1
+    },
+    "TABtouch": {
+     "Alexander Zverev": 1.23,
+     "Cameron Norrie": 4.1
+    },
+    "Betfair": {
+     "Alexander Zverev": 1.24,
+     "Cameron Norrie": 5.0
+    }
+   },
+   "ages": {
+    "Unibet": 30,
+    "PlayUp": 7,
+    "TABtouch": 8,
+    "PointsBet (AU)": 31,
+    "Betr": 30,
+    "Betfair": 5,
+    "TAB": 107,
+    "Ladbrokes": 49,
+    "Neds": 9,
+    "SportsBet": 49
+   }
+  }
+ ]
+}

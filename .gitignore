@@ -13,3 +13,9 @@ alert.log
 .bot_warned.json
 .env.paid.bak
 data/
+season.log
+.env.paid.bak2
+uv.lock
+.playwright-mcp/
+# docs/ is the GitHub Pages build and IS committed on purpose:
+# data.json is the exported snapshot the hosted dashboard reads.
