@@ -1,4 +1,6 @@
 # Arb Desk runs on the Python standard library alone — urllib, sqlite3,
-# http.server. There is nothing to install.
+# http.server, zoneinfo. There is nothing to install.
 #
-# Python 3.9+ required.
+# Python 3.10+ required, matching pyproject.toml and the CI matrix.
+# This file is kept only so the absence of dependencies is explicit rather
+# than looking like an oversight; `pip install -e ".[dev]"` gets pytest.

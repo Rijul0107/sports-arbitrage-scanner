@@ -115,6 +115,26 @@ backtest that banks a 30% "arbitrage" is measuring its own data errors.
 
 ---
 
+## Constraints the code enforces
+
+**Pre-match only, and it is not a preference.** Online in-play betting is
+prohibited in Australia under the Interactive Gambling Act 2001; licensed
+operators may accept in-play bets only by telephone or in a retail venue. So
+`assess_event()` returns `None` for any fixture already under way whenever
+`config.PRE_MATCH_ONLY` is set, in-play markets are never surfaced "for
+information", and `tests/test_server.py::test_in_play_event_excluded` fails if
+someone removes it.
+
+That constraint is also why a 60-second odds feed is adequate here. Pre-match
+edges persist for minutes; in-play edges last seconds. The tool's latency
+profile is sufficient for what is legal and would not be for what is not.
+
+**No bets, no advice.** Nothing in this repo places a bet — it reads public odds
+and does arithmetic. The returns reported above are simulated replays of
+recorded prices, not a trading record, and nothing here is betting advice.
+
+---
+
 ## Try it
 
 No API key, no credits, nothing fetched:

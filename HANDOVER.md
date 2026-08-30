@@ -1,7 +1,10 @@
 # Handover
 
-Everything needed to pick this up cold. `CLAUDE.md` is the reference; this is
-the walkthrough.
+**What this file is:** the walkthrough for picking this codebase up cold,
+written for whoever works on it next — including AI assistants, which is why it
+opens with a prompt to paste. [CLAUDE.md](CLAUDE.md) is the reference it points
+at. Neither is user documentation: [README.md](README.md) is the project and its
+findings, [OPERATING.md](OPERATING.md) is how to run it.
 
 ---
 

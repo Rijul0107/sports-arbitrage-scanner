@@ -1,6 +1,15 @@
 # Arb Desk — project context
 
-Read before change anything. Documents what code does, why non-obvious decisions made, which mistakes already made once.
+**What this file is:** a briefing document for AI coding assistants working on
+this repo, written in a deliberately compressed style to fit a context window.
+It is not user documentation and it is not written as prose. Humans want
+[README.md](README.md) for the project and its findings, and
+[OPERATING.md](OPERATING.md) for running it.
+
+It is committed because the invariants below are load-bearing — several of them
+are the difference between a correct money figure and a wrong one, and one of
+them is a legal constraint. Anyone changing this code, human or otherwise,
+needs them.
 
 ---
 
@@ -8,7 +17,15 @@ Read before change anything. Documents what code does, why non-obvious decisions
 
 Operational tool. Finds cross-book sports betting arbitrage across Australian bookmakers, tells user which two books to bet with and how much on each.
 
-**User places real money off this output.** Wrong number here not failing test — losing bet. Correctness of money figures outranks everything else in repo: elegance, performance, feature completeness.
+**This tool was built to be bet from.** That framing set every engineering
+priority in the repo: a wrong number here is not a failing test, it is a losing
+bet, so correctness of money figures outranks elegance, performance and feature
+completeness throughout.
+
+Worth stating plainly because the README reports simulated returns: **no bet was
+ever placed from this tool, and no profit or loss was ever realised.** The
+scanner ran, recorded prices and sent alerts; the numbers in the README are a
+replay of that recorded data, not a trading record.
 
 Scope, deliberately narrow:
 
@@ -20,7 +37,16 @@ Scope, deliberately narrow:
 
 ### What this is NOT
 
-**Separate** research project (`arb-desk`, different repo) logs detections to SQLite, produces figures for academic paper on arbitrage viability. That concern deliberately split out. If proposed change only makes sense for academic write-up — logging every scan, tracking outcomes over time, computing summary statistics for publication — does not belong here. This repo is tool someone actually trying to arbitrage would use.
+The analysis concern *was* split into a separate repo originally. It has since
+been merged back in and now lives here: `arbtool/record.py` logs every board,
+`study.py` replays them under candidate book subsets, `analytics.py` reports
+margin distributions and book correlation, and `backtest.py` simulates a
+bankroll. The split is no longer real and this section should not be read as
+saying that logging or statistics belong elsewhere.
+
+The live-tool concern and the analysis concern do stay separate in one respect
+that still matters: nothing in the analysis path may spend API credits. It reads
+the board log only.
 
 ---
 

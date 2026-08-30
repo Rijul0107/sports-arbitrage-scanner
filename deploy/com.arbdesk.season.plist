@@ -26,6 +26,11 @@
        process sitting in `state = running` forever while the watcher appears
        healthy and reports nothing.
 
+     NOTE: launchd and cron both require ABSOLUTE paths and neither expands
+     ~ or $HOME. Replace every /ABSOLUTE/PATH/TO/arb-desk below with wherever you
+     cloned the repo, e.g. with:
+       sed -i '' "s#/ABSOLUTE/PATH/TO/arb-desk#$PWD#g" deploy/*.plist deploy/crontab.txt
+
   Install:
     cp deploy/com.arbdesk.season.plist ~/Library/LaunchAgents/
     launchctl load ~/Library/LaunchAgents/com.arbdesk.season.plist
@@ -45,7 +50,7 @@
         <string>/bin/bash</string>
         <string>-c</string>
         <string>export PATH=/opt/homebrew/bin:/usr/bin:/bin
-cd /Users/rijulkhunger/Downloads/arb-tool || exit 1
+cd /ABSOLUTE/PATH/TO/arb-desk || exit 1
 echo "--- $(date '+%Y-%m-%d %H:%M:%S %Z') season watch ---"
 timeout 300 /opt/homebrew/bin/python3 season.py
 rc=$?
@@ -75,9 +80,9 @@ echo "--- exit $rc ---"</string>
     <false/>
 
     <key>StandardOutPath</key>
-    <string>/Users/rijulkhunger/Downloads/arb-tool/season.log</string>
+    <string>/ABSOLUTE/PATH/TO/arb-desk/season.log</string>
     <key>StandardErrorPath</key>
-    <string>/Users/rijulkhunger/Downloads/arb-tool/season.log</string>
+    <string>/ABSOLUTE/PATH/TO/arb-desk/season.log</string>
 
     <key>ProcessType</key>   <string>Background</string>
     <key>LowPriorityIO</key> <true/>

@@ -1,5 +1,8 @@
 # Arb Desk — scan for arbitrage and alert on Telegram.
 #
+# Paths below are placeholders: cron does not expand ~ or $HOME, so
+# replace /ABSOLUTE/PATH/TO/arb-desk with your clone before installing.
+#
 # Install:   crontab deploy/crontab.txt          (replaces your whole crontab)
 #   or:      crontab -l > /tmp/c && cat deploy/crontab.txt >> /tmp/c && crontab /tmp/c
 # Check:     crontab -l
@@ -56,4 +59,4 @@
 SHELL=/bin/zsh
 PATH=/opt/homebrew/bin:/usr/bin:/bin
 
-*/30 * * * * cd /Users/rijulkhunger/Downloads/arb-tool && /opt/homebrew/bin/python3 alert.py >> alert.log 2>&1
+*/30 * * * * cd /ABSOLUTE/PATH/TO/arb-desk && /opt/homebrew/bin/python3 alert.py >> alert.log 2>&1

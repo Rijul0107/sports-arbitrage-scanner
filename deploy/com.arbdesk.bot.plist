@@ -2,6 +2,11 @@
 <!--
   Keeps bot.py running so replies to alerts get answered.
 
+     NOTE: launchd and cron both require ABSOLUTE paths and neither expands
+     ~ or $HOME. Replace every /ABSOLUTE/PATH/TO/arb-desk below with wherever you
+     cloned the repo, e.g. with:
+       sed -i '' "s#/ABSOLUTE/PATH/TO/arb-desk#$PWD#g" deploy/*.plist deploy/crontab.txt
+
   Install:
     cp deploy/com.arbdesk.bot.plist ~/Library/LaunchAgents/
     launchctl load ~/Library/LaunchAgents/com.arbdesk.bot.plist
@@ -21,11 +26,11 @@
     <key>ProgramArguments</key>
     <array>
         <string>/opt/homebrew/bin/python3</string>
-        <string>/Users/rijulkhunger/Downloads/arb-tool/bot.py</string>
+        <string>/ABSOLUTE/PATH/TO/arb-desk/bot.py</string>
     </array>
 
     <key>WorkingDirectory</key>
-    <string>/Users/rijulkhunger/Downloads/arb-tool</string>
+    <string>/ABSOLUTE/PATH/TO/arb-desk</string>
 
     <key>RunAtLoad</key>
     <true/>
@@ -38,8 +43,8 @@
     <integer>30</integer>
 
     <key>StandardOutPath</key>
-    <string>/Users/rijulkhunger/Downloads/arb-tool/bot.log</string>
+    <string>/ABSOLUTE/PATH/TO/arb-desk/bot.log</string>
     <key>StandardErrorPath</key>
-    <string>/Users/rijulkhunger/Downloads/arb-tool/bot.log</string>
+    <string>/ABSOLUTE/PATH/TO/arb-desk/bot.log</string>
 </dict>
 </plist>
