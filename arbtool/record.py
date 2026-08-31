@@ -1,6 +1,6 @@
 """Append-only log of every board a scan looked at.
 
-CLAUDE.md §12 says persistence belongs to the research repo, and that still
+ARCHITECTURE.md §12 says persistence belongs to the research repo, and that still
 holds for anything serving a write-up. This is not that. It exists to answer an
 operational question with a cost attached: which bookmakers earn the float
 sitting in their accounts, and which can be closed. Twelve funded accounts at
@@ -29,7 +29,7 @@ WHAT IS NOT STORED
 
 Margins, stakes and profits for the subset case. Those are derived at replay
 time from the odds, for the same reason Opportunity.to_dict() sends no margins
-(CLAUDE.md §7): a second copy of a fact drifts from the first. The margin
+(ARCHITECTURE.md §7): a second copy of a fact drifts from the first. The margin
 columns here describe the ALL-BOOKS case only, and exist so a board can be
 found without recomputing it — never as the input to a subset decision.
 

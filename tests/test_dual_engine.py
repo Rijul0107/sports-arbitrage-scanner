@@ -1,4 +1,4 @@
-"""The dual-engine constraint, checked (CLAUDE.md §7).
+"""The dual-engine constraint, checked (ARCHITECTURE.md §7).
 
 static/dashboard.html reimplements the pairwise engine in JavaScript so the
 page can derive every figure from the prices it shows. The cost is that two

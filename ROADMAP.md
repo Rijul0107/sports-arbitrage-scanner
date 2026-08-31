@@ -1,26 +1,28 @@
-# Handover
+# Roadmap
 
-**What this file is:** the walkthrough for picking this codebase up cold,
-written for whoever works on it next — including AI assistants, which is why it
-opens with a prompt to paste. [CLAUDE.md](CLAUDE.md) is the reference it points
-at. Neither is user documentation: [README.md](README.md) is the project and its
-findings, [OPERATING.md](OPERATING.md) is how to run it.
+**What this file is:** the walkthrough for picking this codebase up cold, and
+what I would build next. [ARCHITECTURE.md](ARCHITECTURE.md) is the reference it
+points at. Neither is user documentation: [README.md](README.md) is the project
+and its findings, [OPERATING.md](OPERATING.md) is how to run it.
 
 ---
 
-## Paste this into Claude Code to begin
+## Start here
 
-> I'm working on Arb Desk, a cross-book sports betting arbitrage tool. Read
-> CLAUDE.md first — it documents the architecture, the maths, and several
-> invariants that must not be broken, including a legal one about in-play
-> betting.
->
-> For this first session: verify the repo is sound before we change anything.
-> Run the three test suites and verify.py, then `python3 serve.py --demo` and
-> `python3 watch.py --demo` so I can see both interfaces working. Report
-> anything that fails or looks wrong. Don't make changes yet.
+Read [ARCHITECTURE.md](ARCHITECTURE.md) first. It documents the layout, the
+maths, and several invariants that must not be broken — including a legal one
+about in-play betting.
 
-Once that passes, subsequent sessions can start with just "read CLAUDE.md".
+Then verify the repo is sound before changing anything:
+
+```bash
+python3 -m pytest          # the test suites
+python3 verify.py          # re-derives the maths independently
+python3 serve.py --demo    # dashboard, no API credits spent
+python3 watch.py --demo    # terminal watcher, same
+```
+
+Both `--demo` modes run off fixtures, so nothing above costs an API call.
 
 ---
 
@@ -136,5 +138,5 @@ tests do not.
 
 And if you change the JavaScript engine in `static/dashboard.html`, change the
 Python to match, or the browser and terminal will quietly disagree about how
-much money is on the table. §7 of `CLAUDE.md` explains why the duplication
+much money is on the table. §7 of `ARCHITECTURE.md` explains why the duplication
 exists.

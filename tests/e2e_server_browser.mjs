@@ -1,5 +1,5 @@
 // Dashboard against a running server — proves the live path works end to end.
-import pw from '/home/claude/.npm-global/lib/node_modules/playwright/index.js';
+import pw from 'playwright';
 const b = await pw.chromium.launch();
 const p = await b.newPage({viewport:{width:1240,height:1000}, deviceScaleFactor:2});
 const errs=[]; p.on('pageerror',e=>errs.push(e.message));

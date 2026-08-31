@@ -17,7 +17,7 @@ Because appearing in an arbitrage is not the same as being the reason for it.
 Two books that price alike both appear in every crossing their prices allow, yet
 either one alone would have produced the same arbitrage — the count double-marks
 a pairing that is really one opportunity. Ladbrokes and Neds are the obvious
-case here: both Entain, prices tracking each other (CLAUDE.md §11), so a naive
+case here: both Entain, prices tracking each other (ARCHITECTURE.md §11), so a naive
 count credits each with arbitrages the other would have supplied.
 
 The measure used instead is what a subset LOSES. Restrict the board to the
@@ -36,7 +36,7 @@ hours is genuinely easier to catch than one that crosses for ten minutes.
 WHAT THIS DOES NOT KNOW
 
 Whether a book has limited or closed the account, how fast it settles, and
-whether it voids on tennis retirement (CLAUDE.md §11). Those decide real
+whether it voids on tennis retirement (ARCHITECTURE.md §11). Those decide real
 outcomes and no price feed reveals them. Treat the ranking as the money part of
 the decision, not the whole of it.
 """
@@ -80,7 +80,7 @@ def evaluate_subset(row, books, cfg):
     Runs the shipped engine — analyse_game already takes the book list and
     restricts to it — so a subset is scored by exactly the code that would have
     found the arbitrage live. Reimplementing the restriction here would be the
-    dual-engine problem (CLAUDE.md §7) for no gain.
+    dual-engine problem (ARCHITECTURE.md §7) for no gain.
 
     Returns 0.0 when nothing crosses, which is the honest score: a subset that
     finds no arbitrage earns nothing, it does not merely rank lower."""

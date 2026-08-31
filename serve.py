@@ -59,7 +59,7 @@ def build_payload(result, api, cfg) -> dict:
         # Commission rates, not margins. This is an input the page needs to do
         # the same arithmetic the server does — without it the dashboard would
         # rank Betfair on its raw price and overstate the profit, which is the
-        # exact divergence CLAUDE.md §7 exists to prevent. Sending a derived
+        # exact divergence ARCHITECTURE.md §7 exists to prevent. Sending a derived
         # figure would still be forbidden; sending the rate is what makes the
         # page able to derive it.
         "commission": commission_map(cfg),

@@ -36,7 +36,7 @@ class TestParseAmount(unittest.TestCase):
 class TestRestake(unittest.TestCase):
     def test_matches_the_engine_exactly(self):
         """The reply must agree with core.py, not approximate it. A second
-        implementation of the split is exactly the divergence CLAUDE.md §7
+        implementation of the split is exactly the divergence ARCHITECTURE.md §7
         warns about."""
         out = bot.restake(ITEM, 4000.0, config)
         arb = evaluate({"SportsBet": {"Penrith Panthers": 2.12},

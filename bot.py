@@ -390,7 +390,7 @@ def restake(item: dict, total: float, cfg) -> str:
 
     Rebuilds the market from the stored prices and runs it back through the
     real engine rather than reimplementing the split here — the dual-engine
-    problem in CLAUDE.md §7 is already one duplicate implementation too many."""
+    problem in ARCHITECTURE.md §7 is already one duplicate implementation too many."""
     book_odds = {}
     for leg in item["legs"]:
         book_odds.setdefault(leg["book"], {})[leg["outcome"]] = leg["odds"]

@@ -59,7 +59,7 @@ from arbtool.scan import scan
 API = "https://api.telegram.org/bot{token}/{method}"
 MAX_LEN = 4000              # Telegram's ceiling is 4096; leave room for the footer
 
-# Suppression state. Not history and not analytics — CLAUDE.md §12 keeps that in
+# Suppression state. Not history and not analytics — ARCHITECTURE.md §12 keeps that in
 # the research repo. This is the minimum needed to avoid sending the same
 # opportunity every hour for as long as it stands, which would train you to
 # ignore the alerts and so defeat the point of having them.

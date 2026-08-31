@@ -164,7 +164,7 @@ class TestSubsetReplay(RecordCase):
         self.assertEqual(study.score(rows, list(config.BOOKS), config), before)
 
     def test_a_single_book_can_never_arbitrage(self):
-        # Two different bookmakers or it is not placeable (CLAUDE.md §5).
+        # Two different bookmakers or it is not placeable (ARCHITECTURE.md §5).
         for b in config.BOOKS:
             self.assertEqual(study.score(self.rows_, [b], config), (0.0, 0))
 

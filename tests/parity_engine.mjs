@@ -1,7 +1,7 @@
 /* Runs the dashboard's own engine over a payload, for tests/test_dual_engine.py.
  *
  * static/dashboard.html carries a second implementation of the pairwise engine
- * (CLAUDE.md §7). It exists so the page can recompute every figure from the
+ * (ARCHITECTURE.md §7). It exists so the page can recompute every figure from the
  * prices it displays, and its cost is that two implementations must agree. This
  * extracts the real functions from the shipped page — not a copy that could
  * drift — and prints what they produce.
@@ -13,7 +13,7 @@ import { readFileSync } from 'node:fs';
 const html = readFileSync(process.argv[2], 'utf8');
 
 /* Extracted by walking braces from a named function, not by slicing between two
-   string offsets. CLAUDE.md §6 records what the offset approach did to this
+   string offsets. ARCHITECTURE.md §6 records what the offset approach did to this
    repo once: an anchor matched inside a CSS comment and the "patch" produced a
    102 MB file. */
 function grab(name) {
