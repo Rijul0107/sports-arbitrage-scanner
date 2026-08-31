@@ -29,7 +29,6 @@ from __future__ import annotations
 
 import argparse
 import json
-import shutil
 import sys
 from pathlib import Path
 
@@ -54,16 +53,18 @@ def rows_to_games(conn, limit: int):
     """
     # scanned_at lives on scans, not boards, so the join is required rather
     # than cosmetic.
-    sql = ("SELECT b.event_id, b.sport_title, b.home, b.away, b.minutes_to_start,"
-           "       b.market_key, b.market_label, b.outcomes_json, b.odds_json,"
-           "       b.ages_json, b.realised_margin_pct, s.scanned_at"
-           "  FROM boards b JOIN scans s ON s.id = b.scan_id"
-           " WHERE b.playable = 1 AND b.realised_margin_pct BETWEEN 0 AND 10"
-           " ORDER BY b.realised_margin_pct DESC LIMIT ?")
+    sql = (
+        "SELECT b.event_id, b.sport_title, b.home, b.away, b.minutes_to_start,"
+        "       b.market_key, b.market_label, b.outcomes_json, b.odds_json,"
+        "       b.ages_json, b.realised_margin_pct, s.scanned_at"
+        "  FROM boards b JOIN scans s ON s.id = b.scan_id"
+        " WHERE b.playable = 1 AND b.realised_margin_pct BETWEEN 0 AND 10"
+        " ORDER BY b.realised_margin_pct DESC LIMIT ?"
+    )
     games, seen = [], set()
     for r in conn.execute(sql, (limit * 4,)):
         key = (r["event_id"], r["market_key"], r["market_label"])
-        if key in seen:                 # one row per market, best price kept
+        if key in seen:  # one row per market, best price kept
             continue
         seen.add(key)
         try:
@@ -72,18 +73,22 @@ def rows_to_games(conn, limit: int):
             ages = json.loads(r["ages_json"] or "{}")
         except (TypeError, ValueError):
             continue
-        games.append({
-            "id": f'{r["event_id"]}:{r["market_key"]}:{r["market_label"]}',
-            "sport": r["sport_title"],
-            "home": r["home"],
-            "away": r["away"],
-            "starts_in_min": round(r["minutes_to_start"] or 0),
-            "market": r["market_label"],
-            "outcomes": outcomes,
-            "odds": odds,
-            "ages": {b: (round(a) if isinstance(a, (int, float)) else None)
-                     for b, a in (ages or {}).items()},
-        })
+        games.append(
+            {
+                "id": f"{r['event_id']}:{r['market_key']}:{r['market_label']}",
+                "sport": r["sport_title"],
+                "home": r["home"],
+                "away": r["away"],
+                "starts_in_min": round(r["minutes_to_start"] or 0),
+                "market": r["market_label"],
+                "outcomes": outcomes,
+                "odds": odds,
+                "ages": {
+                    b: (round(a) if isinstance(a, (int, float)) else None)
+                    for b, a in (ages or {}).items()
+                },
+            }
+        )
         if len(games) >= limit:
             break
     return games
@@ -95,9 +100,9 @@ def build(db_path, out_dir: Path, limit: int) -> int:
     with connect(db_path) as conn:
         games = rows_to_games(conn, limit)
         span = conn.execute(
-            "SELECT min(scanned_at), max(scanned_at) FROM scans").fetchone()
-        totals = conn.execute(
-            "SELECT count(*) FROM boards").fetchone()[0]
+            "SELECT min(scanned_at), max(scanned_at) FROM scans"
+        ).fetchone()
+        totals = conn.execute("SELECT count(*) FROM boards").fetchone()[0]
 
     if not games:
         print("No playable boards in the log — nothing to export.")
@@ -113,9 +118,11 @@ def build(db_path, out_dir: Path, limit: int) -> int:
         "generated_from": {
             "window": [span[0], span[1]],
             "boards_logged": totals,
-            "note": ("Real odds recorded by the scanner in this window. "
-                     "No bets were placed. Sorted by margin, so this is the "
-                     "best of what was found, not a typical minute."),
+            "note": (
+                "Real odds recorded by the scanner in this window. "
+                "No bets were placed. Sorted by margin, so this is the "
+                "best of what was found, not a typical minute."
+            ),
         },
         "books": books,
         "commission": commission_map(config),
@@ -128,22 +135,35 @@ def build(db_path, out_dir: Path, limit: int) -> int:
     }
 
     (out_dir / "data.json").write_text(json.dumps(payload, indent=1), encoding="utf-8")
-    shutil.copyfile(HERE / "static" / "dashboard.html", out_dir / "index.html")
+    # The served dashboard is genuinely live; this copy is a recorded snapshot,
+    # and the browser tab is the one place that distinction is visible before a
+    # reader has scrolled anywhere. Retitle it rather than shipping a page that
+    # calls itself live when it cannot fetch.
+    page = (HERE / "static" / "dashboard.html").read_text(encoding="utf-8")
+    page = page.replace(
+        "<title>Arb Desk — live</title>",
+        "<title>Arb Desk — recorded snapshot</title>",
+        1,
+    )
+    (out_dir / "index.html").write_text(page, encoding="utf-8")
     # Pages runs files through Jekyll by default, which strips paths beginning
     # with an underscore and can mangle templating-like braces. .nojekyll turns
     # that off; without it the export can render locally and break once hosted.
     (out_dir / ".nojekyll").write_text("", encoding="utf-8")
 
     print(f"Wrote {out_dir}/index.html and {out_dir}/data.json")
-    print(f"  {len(games)} opportunities, {len(books)} books, "
-          f"{span[0][:10]} to {span[1][:10]}")
+    print(
+        f"  {len(games)} opportunities, {len(books)} books, "
+        f"{span[0][:10]} to {span[1][:10]}"
+    )
     print(f"  Preview: python3 -m http.server -d {out_dir} 8000")
     return 0
 
 
 def main(argv=None) -> int:
-    p = argparse.ArgumentParser(description=__doc__,
-                                formatter_class=argparse.RawDescriptionHelpFormatter)
+    p = argparse.ArgumentParser(
+        description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter
+    )
     p.add_argument("--db", default=None)
     p.add_argument("--out", default="docs")
     p.add_argument("--limit", type=int, default=40)
